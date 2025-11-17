@@ -9,6 +9,7 @@ import apiClient from '@/utils/api';
 import { copyToClipboard, downloadFile } from '@/utils/helpers';
 import { cn } from '@/utils/helpers';
 import { useAppStore } from '@/services/store';
+import VoiceControls from './VoiceControls';
 
 interface ResearchAssistantProps {
   className?: string;
@@ -178,14 +179,29 @@ export default function ResearchAssistant({ className }: ResearchAssistantProps)
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium mb-2">Topic</label>
-                  <input
-                    type="text"
-                    value={researchTopic}
-                    onChange={(e) => setResearchTopic(e.target.value)}
-                    placeholder="e.g., Transformer architectures in machine learning"
-                    className="input"
-                    onKeyPress={(e) => e.key === 'Enter' && handleFetchResearch()}
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={researchTopic}
+                      onChange={(e) => setResearchTopic(e.target.value)}
+                      placeholder="e.g., Transformer architectures in machine learning"
+                      className="input flex-1"
+                      onKeyPress={(e) => e.key === 'Enter' && handleFetchResearch()}
+                    />
+                  </div>
+                </div>
+
+                {/* Voice Controls for Research */}
+                <div className="p-4 bg-[var(--bg-tertiary)] rounded-lg">
+                  <label className="block text-sm font-medium mb-3">Voice Interaction</label>
+                  <VoiceControls
+                    onTranscript={(text) => setResearchTopic(text)}
+                    textToSpeak={researchResult?.overview || ''}
+                    className="justify-center"
                   />
+                  <p className="text-xs text-[var(--text-tertiary)] mt-2 text-center">
+                    Use microphone to speak your topic, or speaker to hear the overview
+                  </p>
                 </div>
 
                 <div>
@@ -326,6 +342,19 @@ export default function ResearchAssistant({ className }: ResearchAssistantProps)
                     className="input"
                     onKeyPress={(e) => e.key === 'Enter' && handleExplainTopic()}
                   />
+                </div>
+
+                {/* Voice Controls for Explanation */}
+                <div className="p-4 bg-[var(--bg-tertiary)] rounded-lg">
+                  <label className="block text-sm font-medium mb-3">Voice Interaction</label>
+                  <VoiceControls
+                    onTranscript={(text) => setExplainTopic(text)}
+                    textToSpeak={explanationResult?.introduction || ''}
+                    className="justify-center"
+                  />
+                  <p className="text-xs text-[var(--text-tertiary)] mt-2 text-center">
+                    Use microphone to speak your topic, or speaker to hear the introduction
+                  </p>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

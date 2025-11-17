@@ -5,38 +5,67 @@ A fully functional, mobile-compatible web app that combines a 3D virtual memory 
 ## 🎯 Features
 
 - **3D Memory Palace**: Interactive Three.js visualization for organizing knowledge
-- **AI Research Assistant**: Claude-powered research synthesis and explanations
+- **AI Research Assistant**: Multi-model AI research synthesis and explanations (Claude, Together, DeepSeek, Mistral)
+- **AI Model Selection**: Choose between 4 different AI providers based on your needs
+- **Voice Interaction**: Real-time speech-to-text and text-to-speech powered by Google Cloud
 - **Smart Q&A**: Advanced topic explanations with LaTeX math rendering
 - **Cloud Storage**: Google Drive/GCS integration for persistent storage
-- **Mobile-First Design**: Fully responsive with dark mode
+- **Mobile-First Design**: Fully responsive with dark mode and large touch targets
 - **Private & Secure**: Authentication and data encryption
 
 ## 📋 Required APIs
 
-### 1. Claude API (Anthropic)
-- **Purpose**: AI research assistant, topic explanations, note organization
+### 1. AI Model APIs (At least one required)
+
+#### Claude API (Anthropic) - **RECOMMENDED**
+- **Purpose**: Most capable AI for research, explanations, and note organization
 - **Get API Key**: https://console.anthropic.com/
 - **Pricing**: Pay-as-you-go (starting at $0.25/MTok for Claude 3.5 Haiku)
 - **Required Scopes**: Full API access
 - **Environment Variable**: `ANTHROPIC_API_KEY`
 
+#### Together API (Optional)
+- **Purpose**: Fast, cost-effective open-source models (Llama 3.1 70B)
+- **Get API Key**: https://api.together.xyz/
+- **Pricing**: $0.88/MTok (input), $0.88/MTok (output)
+- **Environment Variable**: `TOGETHER_API_KEY`
+
+#### DeepSeek API (Optional)
+- **Purpose**: Strong reasoning at low cost
+- **Get API Key**: https://platform.deepseek.com/
+- **Pricing**: ~$0.14/MTok (very affordable)
+- **Environment Variable**: `DEEPSEEK_API_KEY`
+
+#### Mistral AI API (Optional)
+- **Purpose**: European alternative with multilingual support
+- **Get API Key**: https://console.mistral.ai/
+- **Pricing**: Varies by model ($2-8/MTok)
+- **Environment Variable**: `MISTRAL_API_KEY`
+
+**Note**: You can configure one or multiple AI providers. The app will show only available models based on configured API keys.
+
 ### 2. Google Cloud APIs
-- **Purpose**: File storage and OAuth authentication
+- **Purpose**: File storage, OAuth authentication, and voice interaction
 - **Get Started**: https://console.cloud.google.com/
 - **Required APIs**:
   - Google Drive API (for file storage)
   - OR Google Cloud Storage (alternative)
   - OAuth 2.0 (for user authentication)
+  - Cloud Speech-to-Text API (for voice input)
+  - Cloud Text-to-Speech API (for voice output)
 - **Pricing**:
   - Google Drive: 15GB free, then $1.99/month for 100GB
   - GCS: $0.02/GB/month (first 5GB free operations)
+  - Speech-to-Text: 60 min/month free, then $0.006/15 seconds
+  - Text-to-Speech: 1M chars/month free (WaveNet), then $4/1M chars
 - **Required Credentials**:
   - OAuth 2.0 Client ID & Secret
-  - Service Account JSON (if using GCS)
+  - Service Account JSON with Speech/TTS permissions
 - **Environment Variables**:
   - `GOOGLE_CLIENT_ID`
   - `GOOGLE_CLIENT_SECRET`
-  - `GOOGLE_SERVICE_ACCOUNT_JSON` (optional)
+  - `GOOGLE_APPLICATION_CREDENTIALS` (path to service account JSON)
+  - `GOOGLE_SERVICE_ACCOUNT_JSON` (optional, alternative)
 
 ### 3. arXiv API (Optional)
 - **Purpose**: Fetch academic research papers
@@ -79,10 +108,22 @@ Create `.env` files in both `backend/` and `frontend/`:
 
 **Backend `.env`:**
 ```env
+# AI Model APIs (at least one required)
 ANTHROPIC_API_KEY=your_claude_api_key_here
+TOGETHER_API_KEY=your_together_api_key_here  # Optional
+DEEPSEEK_API_KEY=your_deepseek_api_key_here  # Optional
+MISTRAL_API_KEY=your_mistral_api_key_here    # Optional
+
+# Default AI model (options: claude, together, deepseek, mistral)
+DEFAULT_AI_MODEL=claude
+
+# Google Cloud APIs
 GOOGLE_CLIENT_ID=your_google_client_id
 GOOGLE_CLIENT_SECRET=your_google_client_secret
-GOOGLE_SERVICE_ACCOUNT_JSON=path/to/service-account.json
+GOOGLE_APPLICATION_CREDENTIALS=/path/to/service-account.json
+GOOGLE_SERVICE_ACCOUNT_JSON=/path/to/service-account.json  # Alternative
+
+# Security & Configuration
 CORS_ORIGINS=http://localhost:3000,http://localhost:5173
 SECRET_KEY=your_random_secret_key_for_sessions
 ENVIRONMENT=development
@@ -302,14 +343,82 @@ Memory-Research-Assistant/
 - Zoom and rotate for better visualization
 
 ### 3. Research Assistant
-- Ask questions about advanced topics
-- Get synthesized research from arXiv
-- Receive step-by-step explanations with math
+- **Select AI Model**: Choose from Claude, Together, DeepSeek, or Mistral in the dropdown
+- **Voice Input**: Click microphone button to speak your research topic
+- **Text Input**: Type questions about advanced topics
+- Get synthesized research from arXiv with key findings
+- Receive step-by-step explanations with LaTeX math
+- **Voice Output**: Click speaker button to hear AI responses aloud
 
 ### 4. Save & Sync
 - All notes automatically save to Google Drive
 - Access from any device
 - Export as PDF or Markdown
+
+## 🎯 Using New Features
+
+### AI Model Selection
+
+The app supports multiple AI providers, allowing you to choose based on your needs:
+
+1. **Access Model Selector**:
+   - Look for the AI model dropdown in the top navigation bar
+   - Available on desktop and mobile
+
+2. **Choose Your Model**:
+   - **Claude 3.5 Sonnet**: Best for complex reasoning, nuanced understanding, and high-quality outputs
+   - **Llama 3.1 70B (Together)**: Fast and cost-effective for straightforward tasks
+   - **DeepSeek Chat**: Strong reasoning capabilities at the lowest cost
+   - **Mistral Large**: Excellent multilingual support and European data residency
+
+3. **Configuration**:
+   - Models appear in dropdown only if their API keys are configured
+   - Your selection is saved in browser localStorage
+   - Default model can be set via `DEFAULT_AI_MODEL` environment variable
+
+### Voice Interaction
+
+Real-time voice features powered by Google Cloud Speech-to-Text and Text-to-Speech:
+
+1. **Enable Voice Features**:
+   ```bash
+   # Enable Speech APIs in Google Cloud Console
+   gcloud services enable speech.googleapis.com
+   gcloud services enable texttospeech.googleapis.com
+
+   # Ensure your service account has permissions:
+   # - Cloud Speech-to-Text API User
+   # - Cloud Text-to-Speech API User
+   ```
+
+2. **Use Voice Input (Speech-to-Text)**:
+   - Click the **microphone button** (blue) in the Research Assistant
+   - Allow browser microphone permissions when prompted
+   - Speak your research topic clearly
+   - Click the **stop button** (red square) when finished
+   - Your speech will be transcribed and filled into the topic field
+
+3. **Use Voice Output (Text-to-Speech)**:
+   - After receiving an AI response, click the **speaker button** (purple)
+   - The AI's response will be read aloud
+   - Click the speaker button again to stop playback
+   - Works for research overviews and topic explanations
+
+4. **Mobile Optimization**:
+   - Large, tappable buttons (48px) for easy mobile use
+   - Visual feedback: "Listening..." and "Speaking..." indicators
+   - Optimized for touch interfaces
+
+5. **Browser Requirements**:
+   - **HTTPS required** for microphone access (works on localhost)
+   - Supported browsers: Chrome, Safari, Firefox, Edge
+   - Mobile browsers must support WebRTC MediaRecorder
+
+6. **Troubleshooting Voice**:
+   - **Microphone not working**: Check browser permissions in Settings
+   - **No audio playback**: Check device volume and browser audio permissions
+   - **"Permission denied"**: Grant microphone access in browser settings
+   - **Voice endpoint errors**: Verify Google Cloud credentials and API enablement
 
 ## 🤝 Contributing
 

@@ -132,6 +132,73 @@ Complete overview of implemented, tested, and optional features.
 
 ---
 
+### 🤖 AI Model Selection
+
+| Feature | Status | Details | File Location |
+|---------|--------|---------|---------------|
+| **Multiple AI Providers** | ✅ Complete | Claude, Together, DeepSeek, Mistral | `backend/app/services/ai_service_factory.py` |
+| **Model Dropdown UI** | ✅ Complete | Select model in Research Assistant | `frontend/src/components/ModelSelector.tsx` |
+| **Dynamic API Routing** | ✅ Complete | Routes to correct provider | Lines 18-82 |
+| **Model Availability Check** | ✅ Complete | Shows only configured models | Lines 84-121 |
+| **LocalStorage Persistence** | ✅ Complete | Remembers user's choice | `frontend/src/services/store.ts:15-17` |
+| **Abstract Provider Base** | ✅ Complete | Unified interface for all models | `backend/app/services/ai_provider_base.py` |
+| **API Key Validation** | ✅ Complete | Checks keys before routing | Lines 38-75 |
+
+**Supported AI Models:**
+- ✅ **Claude 3.5 Sonnet** (Anthropic) - Most capable for complex reasoning
+- ✅ **Llama 3.1 70B** (Together AI) - Fast and cost-effective open source
+- ✅ **DeepSeek Chat** (DeepSeek) - Strong reasoning at low cost
+- ✅ **Mistral Large** (Mistral AI) - European alternative with multilingual support
+
+**Backend Endpoints:**
+- ✅ `GET /api/v1/research/available-models` - List available models
+- ✅ All research endpoints accept `?model=<model_id>` query parameter
+
+**Testing Status:** ✅ Ready - requires at least one API key configured
+**Default Model:** Claude 3.5 Sonnet (configurable via `DEFAULT_AI_MODEL` env var)
+
+---
+
+### 🎤 Voice Interaction
+
+| Feature | Status | Details | File Location |
+|---------|--------|---------|---------------|
+| **Speech-to-Text (STT)** | ✅ Complete | Google Cloud STT integration | `backend/app/services/speech_to_text_service.py` |
+| **Text-to-Speech (TTS)** | ✅ Complete | Google Cloud TTS integration | `backend/app/services/text_to_speech_service.py` |
+| **Microphone Button** | ✅ Complete | Record and transcribe voice | `frontend/src/components/VoiceControls.tsx:58-91` |
+| **Speaker Button** | ✅ Complete | Play AI responses aloud | Lines 107-144 |
+| **Real-time Recording** | ✅ Complete | WebRTC MediaRecorder API | Lines 58-91 |
+| **Audio Playback** | ✅ Complete | Browser native Audio API | Lines 118-141 |
+| **Visual Feedback** | ✅ Complete | "Listening..." and "Speaking..." states | Lines 227-244 |
+| **Mobile Optimization** | ✅ Complete | Large tappable buttons (48px) | Lines 202-227 |
+| **Error Handling** | ✅ Complete | Mic permissions, network errors | Lines 246-252 |
+| **Multi-language Support** | ✅ Complete | Configurable language codes | Backend supports all GC languages |
+| **Voice Selection** | ✅ Complete | Multiple TTS voices available | `text_to_speech_service.py:50-71` |
+| **Audio Formats** | ✅ Complete | WebM recording, MP3 playback | Lines 60-72 |
+
+**Voice Features:**
+- ✅ **Record Voice Input**: Speak research topics instead of typing
+- ✅ **Hear AI Responses**: Listen to research overviews and explanations
+- ✅ **Animated Indicators**: Pulsing buttons during recording/speaking
+- ✅ **Stop Controls**: Stop recording or playback anytime
+- ✅ **Permission Handling**: Graceful mic permission requests
+
+**Backend Endpoints:**
+- ✅ `POST /api/v1/voice/speech-to-text` - Transcribe audio to text
+- ✅ `POST /api/v1/voice/text-to-speech` - Convert text to audio
+- ✅ `GET /api/v1/voice/list-voices` - List available TTS voices
+- ✅ `GET /api/v1/voice/health` - Check voice services availability
+
+**Integration Points:**
+- ✅ Research Assistant - Voice input for topics, voice output for overviews
+- ✅ Topic Explanation - Voice input for topics, voice output for introductions
+
+**Testing Status:** ✅ Ready - requires Google Cloud credentials
+**Mobile Status:** ✅ Optimized for touchscreens with large buttons
+**Browser Support:** Chrome, Safari, Firefox, Edge (requires HTTPS for mic access)
+
+---
+
 ### 🎨 UI/UX Features
 
 | Feature | Status | Details | File Location |
@@ -221,7 +288,7 @@ Features intentionally not included (can be added later):
 | **User Accounts DB** | ❌ Not implemented | Using OAuth + Drive | Medium |
 | **Collaborative Editing** | ❌ Not implemented | Personal use focus | High |
 | **Mobile App** | ❌ Not implemented | PWA works well | Very High |
-| **Voice Input** | ❌ Not implemented | Not essential | Medium |
+| **Voice Input** | ✅ **IMPLEMENTED** | Google Cloud STT/TTS | See Voice Interaction section |
 | **Image Recognition** | ❌ Not implemented | Out of scope | High |
 | **Real-time Sync** | ❌ Not implemented | Manual save/load OK | High |
 | **Offline Mode** | ⚠️ Partial | Cached in browser | Medium |

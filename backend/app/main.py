@@ -13,7 +13,7 @@ from contextlib import asynccontextmanager
 
 from app.core.config import settings
 from app.models.schemas import HealthCheck, ErrorResponse
-from app.api import auth_router, research_router, storage_router
+from app.api import auth_router, research_router, storage_router, voice_router
 
 
 # Rate limiter setup
@@ -126,6 +126,7 @@ async def root():
 app.include_router(auth_router, prefix=settings.api_v1_prefix)
 app.include_router(research_router, prefix=settings.api_v1_prefix)
 app.include_router(storage_router, prefix=settings.api_v1_prefix)
+app.include_router(voice_router, prefix=settings.api_v1_prefix)
 
 
 # Development-only endpoints
