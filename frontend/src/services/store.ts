@@ -9,6 +9,10 @@ interface User {
   email: string;
   name?: string;
   picture?: string;
+  credentials?: {
+    access_token?: string;
+    refresh_token?: string;
+  };
 }
 
 interface Note {

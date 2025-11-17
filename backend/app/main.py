@@ -3,6 +3,8 @@ Main FastAPI application.
 """
 from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.httpsredirect import HTTPSRedirectMiddleware
+from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import JSONResponse
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
@@ -51,6 +53,21 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Security middleware for production
+if settings.environment == "production":
+    # Force HTTPS redirect
+    app.add_middleware(HTTPSRedirectMiddleware)
+
+    # Trusted host middleware
+    allowed_hosts = ["*"]  # Configure specific hosts in production
+    if settings.cors_origins_list:
+        # Extract hosts from CORS origins
+        allowed_hosts = [
+            origin.replace("https://", "").replace("http://", "")
+            for origin in settings.cors_origins_list
+        ]
+    app.add_middleware(TrustedHostMiddleware, allowed_hosts=allowed_hosts)
 
 
 # Global exception handler

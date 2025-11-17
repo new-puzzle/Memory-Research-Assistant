@@ -3,11 +3,12 @@
  */
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { Moon, Sun, LogOut, Upload, Library, Brain, Home } from 'lucide-react';
+import { Moon, Sun, LogOut, Upload, Library, Brain, Home, Cloud } from 'lucide-react';
 import { useAuthStore, useAppStore } from './services/store';
 import LoginPage from './components/LoginPage';
 import MemoryPalace3D from './components/MemoryPalace3D';
 import ResearchAssistant from './components/ResearchAssistant';
+import StorageManager from './components/StorageManager';
 import apiClient from './utils/api';
 import { generateId } from './utils/helpers';
 
@@ -16,6 +17,7 @@ function App() {
   const { isDarkMode, toggleDarkMode, memoryPalace, setMemoryPalace, currentRoom } = useAppStore();
   const [activeView, setActiveView] = useState<'palace' | 'research'>('palace');
   const [showUpload, setShowUpload] = useState(false);
+  const [showStorage, setShowStorage] = useState(false);
 
   if (!isAuthenticated) {
     return <LoginPage />;
@@ -57,6 +59,16 @@ function App() {
             >
               <Upload size={18} />
               Upload
+            </button>
+
+            {/* Cloud Storage */}
+            <button
+              onClick={() => setShowStorage(true)}
+              className="btn-secondary hidden md:flex items-center gap-2"
+              title="Cloud Storage"
+            >
+              <Cloud size={18} />
+              <span className="hidden lg:inline">Storage</span>
             </button>
 
             {/* Dark Mode Toggle */}
@@ -111,6 +123,9 @@ function App() {
           }}
         />
       )}
+
+      {/* Storage Manager Modal */}
+      {showStorage && <StorageManager onClose={() => setShowStorage(false)} />}
 
       {/* Room Details Panel */}
       {currentRoom && memoryPalace && (
