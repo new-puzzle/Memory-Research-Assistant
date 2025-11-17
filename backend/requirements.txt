@@ -6,6 +6,8 @@ google-auth-oauthlib==1.1.0
 google-auth-httplib2==0.1.1
 google-api-python-client==2.108.0
 google-cloud-storage==2.13.0
+google-cloud-speech==2.24.0
+google-cloud-texttospeech==2.15.0
 pydantic==2.5.2
 pydantic-settings==2.1.0
 python-dotenv==1.0.0
@@ -22,3 +24,6 @@ pytest==7.4.3
 pytest-asyncio==0.21.1
 pytest-cov==4.1.0
 requests==2.31.0
+openai==1.6.1
+mistralai==0.0.11
+websockets==12.0

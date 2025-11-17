@@ -8,6 +8,7 @@ import { InlineMath, BlockMath } from 'react-katex';
 import apiClient from '@/utils/api';
 import { copyToClipboard, downloadFile } from '@/utils/helpers';
 import { cn } from '@/utils/helpers';
+import { useAppStore } from '@/services/store';
 
 interface ResearchAssistantProps {
   className?: string;
@@ -33,6 +34,7 @@ interface ExplanationResult {
 }
 
 export default function ResearchAssistant({ className }: ResearchAssistantProps) {
+  const { selectedModel } = useAppStore();
   const [activeTab, setActiveTab] = useState<TabType>('research');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -63,7 +65,7 @@ export default function ResearchAssistant({ className }: ResearchAssistantProps)
         context: researchContext || undefined,
         max_papers: 5,
         include_arxiv: includeArxiv,
-      });
+      }, selectedModel);
 
       setResearchResult(result as ResearchResult);
     } catch (err: any) {
@@ -85,7 +87,7 @@ export default function ResearchAssistant({ className }: ResearchAssistantProps)
         prerequisite: prerequisite || undefined,
         related_field: relatedField || undefined,
         complexity_level: complexityLevel,
-      });
+      }, selectedModel);
 
       setExplanationResult(result as ExplanationResult);
     } catch (err: any) {

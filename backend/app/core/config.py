@@ -9,8 +9,11 @@ from pydantic import Field
 class Settings(BaseSettings):
     """Application settings loaded from environment variables."""
 
-    # API Keys
-    anthropic_api_key: str = Field(..., env="ANTHROPIC_API_KEY")
+    # AI Model API Keys
+    anthropic_api_key: str = Field(default="", env="ANTHROPIC_API_KEY")
+    together_api_key: str = Field(default="", env="TOGETHER_API_KEY")
+    deepseek_api_key: str = Field(default="", env="DEEPSEEK_API_KEY")
+    mistral_api_key: str = Field(default="", env="MISTRAL_API_KEY")
 
     # Google Cloud
     google_client_id: str = Field(..., env="GOOGLE_CLIENT_ID")
@@ -19,6 +22,7 @@ class Settings(BaseSettings):
         default="./service-account.json",
         env="GOOGLE_SERVICE_ACCOUNT_JSON"
     )
+    google_cloud_project_id: str = Field(default="", env="GOOGLE_CLOUD_PROJECT_ID")
 
     # Application
     secret_key: str = Field(..., env="SECRET_KEY")
@@ -47,10 +51,14 @@ class Settings(BaseSettings):
     project_name: str = "Memory Palace + Research Assistant"
     version: str = "1.0.0"
 
-    # Claude API Settings
+    # AI Model Settings
+    default_ai_model: str = Field(default="claude", env="DEFAULT_AI_MODEL")
     claude_model: str = "claude-3-5-sonnet-20241022"  # Use latest Sonnet
-    claude_max_tokens: int = 4096
-    claude_temperature: float = 0.7
+    together_model: str = "meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo"
+    deepseek_model: str = "deepseek-chat"
+    mistral_model: str = "mistral-large-latest"
+    max_tokens: int = 4096
+    temperature: float = 0.7
 
     # File Upload Settings
     max_upload_size_mb: int = 10

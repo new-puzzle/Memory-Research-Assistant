@@ -83,8 +83,9 @@ class ApiClient {
     context?: string;
     max_papers?: number;
     include_arxiv?: boolean;
-  }) {
-    return this.post('/research/fetch-research', data);
+  }, model?: string) {
+    const url = model ? `/research/fetch-research?model=${model}` : '/research/fetch-research';
+    return this.post(url, data);
   }
 
   async explainTopic(data: {
@@ -92,8 +93,9 @@ class ApiClient {
     prerequisite?: string;
     related_field?: string;
     complexity_level?: 'beginner' | 'intermediate' | 'advanced';
-  }) {
-    return this.post('/research/explain-topic', data);
+  }, model?: string) {
+    const url = model ? `/research/explain-topic?model=${model}` : '/research/explain-topic';
+    return this.post(url, data);
   }
 
   async organizeNotes(data: {
@@ -105,8 +107,14 @@ class ApiClient {
       tags?: string[];
     }>;
     existing_structure?: any;
-  }) {
-    return this.post('/research/organize-notes', data);
+  }, model?: string) {
+    const url = model ? `/research/organize-notes?model=${model}` : '/research/organize-notes';
+    return this.post(url, data);
+  }
+
+  // Get available AI models
+  async getAvailableModels() {
+    return this.get('/research/available-models');
   }
 
   // Storage endpoints

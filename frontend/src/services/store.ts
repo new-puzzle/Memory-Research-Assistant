@@ -51,6 +51,14 @@ interface AuthState {
   logout: () => void;
 }
 
+interface AIModel {
+  id: string;
+  name: string;
+  provider: string;
+  available: boolean;
+  description: string;
+}
+
 interface AppState {
   isDarkMode: boolean;
   toggleDarkMode: () => void;
@@ -62,6 +70,10 @@ interface AppState {
   setIsLoading: (loading: boolean) => void;
   error: string | null;
   setError: (error: string | null) => void;
+  selectedModel: string;
+  setSelectedModel: (model: string) => void;
+  availableModels: AIModel[];
+  setAvailableModels: (models: AIModel[]) => void;
 }
 
 // Auth store
@@ -104,12 +116,17 @@ export const useAppStore = create<AppState>()(
       setIsLoading: (loading: boolean) => set({ isLoading: loading }),
       error: null,
       setError: (error: string | null) => set({ error }),
+      selectedModel: 'claude',
+      setSelectedModel: (model: string) => set({ selectedModel: model }),
+      availableModels: [],
+      setAvailableModels: (models: AIModel[]) => set({ availableModels: models }),
     }),
     {
       name: 'app-storage',
       partialize: (state) => ({
         isDarkMode: state.isDarkMode,
         memoryPalace: state.memoryPalace,
+        selectedModel: state.selectedModel,
       }),
     }
   )

@@ -1,8 +1,8 @@
 """
 Research assistant API endpoints.
 """
-from fastapi import APIRouter, Depends, HTTPException, status
-from typing import Dict
+from fastapi import APIRouter, Depends, HTTPException, status, Query
+from typing import Dict, Optional
 
 from app.models.schemas import (
     ResearchRequest,
@@ -12,24 +12,46 @@ from app.models.schemas import (
     OrganizeNotesRequest,
     OrganizeNotesResponse,
 )
-from app.services import claude_service, arxiv_service
+from app.services import arxiv_service
+from app.services.ai_service_factory import get_ai_provider, AIServiceFactory
 from app.core.security import get_current_user
 
 router = APIRouter(prefix="/research", tags=["research"])
 
 
+@router.get("/available-models")
+async def get_available_models(current_user: Dict = Depends(get_current_user)):
+    """
+    Get list of available AI models based on configured API keys.
+
+    Returns list of models with availability status.
+    """
+    try:
+        models = AIServiceFactory.get_available_models()
+        return {"models": models}
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to get available models: {str(e)}"
+        )
+
+
 @router.post("/fetch-research", response_model=ResearchResponse)
 async def fetch_research(
     request: ResearchRequest,
+    model: Optional[str] = Query(None, description="AI model to use (claude, together, deepseek, mistral)"),
     current_user: Dict = Depends(get_current_user)
 ):
     """
     Fetch and synthesize research on a given topic.
 
-    Uses Claude AI to analyze and synthesize research, optionally including
+    Uses AI to analyze and synthesize research, optionally including
     papers from arXiv for academic topics.
     """
     try:
+        # Get AI provider
+        ai_provider = get_ai_provider(model)
+
         # Fetch research from arXiv if enabled
         arxiv_papers = []
         if request.include_arxiv:
@@ -50,8 +72,8 @@ async def fetch_research(
             else:
                 request.context = arxiv_context
 
-        # Synthesize research using Claude
-        response = await claude_service.synthesize_research(request)
+        # Synthesize research using AI
+        response = await ai_provider.synthesize_research(request)
 
         # Add arXiv papers to further reading
         for paper in arxiv_papers:
@@ -73,6 +95,7 @@ async def fetch_research(
 @router.post("/explain-topic", response_model=ExplainTopicResponse)
 async def explain_topic(
     request: ExplainTopicRequest,
+    model: Optional[str] = Query(None, description="AI model to use (claude, together, deepseek, mistral)"),
     current_user: Dict = Depends(get_current_user)
 ):
     """
@@ -82,7 +105,9 @@ async def explain_topic(
     the specified complexity level.
     """
     try:
-        response = await claude_service.explain_topic(request)
+        # Get AI provider
+        ai_provider = get_ai_provider(model)
+        response = await ai_provider.explain_topic(request)
         return response
 
     except Exception as e:
@@ -95,17 +120,21 @@ async def explain_topic(
 @router.post("/organize-notes", response_model=OrganizeNotesResponse)
 async def organize_notes(
     request: OrganizeNotesRequest,
+    model: Optional[str] = Query(None, description="AI model to use (claude, together, deepseek, mistral)"),
     current_user: Dict = Depends(get_current_user)
 ):
     """
     Organize notes into a Memory Palace structure.
 
-    Uses Claude AI to intelligently categorize and structure notes
+    Uses AI to intelligently categorize and structure notes
     into themed rooms with spatial layout and connections.
     """
     try:
-        # Organize notes using Claude
-        structure = await claude_service.organize_notes(
+        # Get AI provider
+        ai_provider = get_ai_provider(model)
+
+        # Organize notes using AI
+        structure = await ai_provider.organize_notes(
             notes=request.notes,
             existing_structure=request.existing_structure
         )

@@ -9,12 +9,13 @@ import LoginPage from './components/LoginPage';
 import MemoryPalace3D from './components/MemoryPalace3D';
 import ResearchAssistant from './components/ResearchAssistant';
 import StorageManager from './components/StorageManager';
+import ModelSelector from './components/ModelSelector';
 import apiClient from './utils/api';
 import { generateId } from './utils/helpers';
 
 function App() {
   const { isAuthenticated, user, logout } = useAuthStore();
-  const { isDarkMode, toggleDarkMode, memoryPalace, setMemoryPalace, currentRoom } = useAppStore();
+  const { isDarkMode, toggleDarkMode, memoryPalace, setMemoryPalace, currentRoom, selectedModel } = useAppStore();
   const [activeView, setActiveView] = useState<'palace' | 'research'>('palace');
   const [showUpload, setShowUpload] = useState(false);
   const [showStorage, setShowStorage] = useState(false);
@@ -33,7 +34,7 @@ function App() {
             <h1 className="text-xl font-bold hidden sm:block">Memory Palace</h1>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             {/* View Toggle */}
             <button
               onClick={() => setActiveView('palace')}
@@ -51,6 +52,9 @@ function App() {
               <Brain size={18} />
               <span className="hidden sm:inline ml-2">Research</span>
             </button>
+
+            {/* AI Model Selector */}
+            <ModelSelector className="hidden lg:block" />
 
             {/* Upload Notes */}
             <button
@@ -116,7 +120,7 @@ function App() {
           onClose={() => setShowUpload(false)}
           onUpload={(notes) => {
             // Handle note upload and organization
-            apiClient.organizeNotes({ notes }).then((result: any) => {
+            apiClient.organizeNotes({ notes }, selectedModel).then((result: any) => {
               setMemoryPalace(result.structure);
               setShowUpload(false);
             });
