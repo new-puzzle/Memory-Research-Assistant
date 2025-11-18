@@ -5,6 +5,7 @@ import React, { useState } from 'react';
 import { Search, BookOpen, Loader2, Download, Copy, Check, History, X, Plus } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { InlineMath, BlockMath } from 'react-katex';
+import 'katex/dist/katex.min.css';
 import apiClient from '@/utils/api';
 import { copyToClipboard, downloadFile } from '@/utils/helpers';
 import { cn } from '@/utils/helpers';
@@ -99,6 +100,10 @@ export default function ResearchAssistant({ className }: ResearchAssistantProps)
       }, selectedModel);
 
       const explanationData = result as ExplanationResult;
+      
+      // Log raw content to debug
+      console.log('[Raw API Response]', explanationData);
+      
       setExplanationResult(explanationData);
       addToHistory('explain', explainTopic, explanationData);
     } catch (err: any) {
@@ -135,15 +140,18 @@ export default function ResearchAssistant({ className }: ResearchAssistantProps)
 
   // Process content to render LaTeX equations properly
   const renderMathMarkdown = (content: string) => {
-    // Split content by LaTeX equations
+    if (!content) return null;
+
+    console.log('[LaTeX Debug] Content:', content);
+
     const parts: (string | JSX.Element)[] = [];
     let lastIndex = 0;
-    
+
     // Match display math: $$...$$
     const displayMathRegex = /\$\$([\s\S]*?)\$\$/g;
-    // Match inline math: $...$ (but not $$) - simpler regex without lookbehind
-    const inlineMathRegex = /\$(?!\$)([^$\n]+?)\$(?!\$)/g;
-    
+    // Match inline math: $...$ (but not $$)
+    const inlineMathRegex = /\$(?!\$)([\s\S]+?)\$(?!\$)/g;
+
     // First, handle display math ($$...$$)
     let match;
     const displayMatches: Array<{ start: number; end: number; content: string }> = [];
@@ -151,16 +159,14 @@ export default function ResearchAssistant({ className }: ResearchAssistantProps)
       displayMatches.push({
         start: match.index,
         end: match.index + match[0].length,
-        content: match[1].trim(),
+        content: match[1],
       });
     }
-    
+
     // Then handle inline math ($...$)
     const inlineMatches: Array<{ start: number; end: number; content: string }> = [];
-    // Reset regex
     inlineMathRegex.lastIndex = 0;
     while ((match = inlineMathRegex.exec(content)) !== null) {
-      // Check if this inline math is inside a display math block
       const isInsideDisplay = displayMatches.some(
         (dm) => match!.index >= dm.start && match!.index < dm.end
       );
@@ -172,77 +178,48 @@ export default function ResearchAssistant({ className }: ResearchAssistantProps)
         });
       }
     }
-    
+
     // Combine and sort all matches
     const allMatches = [
       ...displayMatches.map((m) => ({ ...m, type: 'display' as const })),
       ...inlineMatches.map((m) => ({ ...m, type: 'inline' as const })),
     ].sort((a, b) => a.start - b.start);
-    
-    // Build the parts array
-    allMatches.forEach((mathMatch) => {
-      // Add text before the match
-      if (mathMatch.start > lastIndex) {
-        const textBefore = content.substring(lastIndex, mathMatch.start);
-        if (textBefore) {
-          parts.push(textBefore);
-        }
+
+    // Build the output
+    allMatches.forEach((match, idx) => {
+      // Add text before this match
+      if (match.start > lastIndex) {
+        const textBefore = content.substring(lastIndex, match.start);
+        parts.push(textBefore);
       }
-      
-      // Add the math component
+
+      // Add the math
       try {
-        // Content from JSON is already unescaped, but check if we need to handle escaped backslashes
-        // Only unescape if we detect double backslashes (from JSON string representation)
-        let mathContent = mathMatch.content;
-        // Check if content has escaped backslashes (like \\begin) - this happens when content is double-encoded
-        if (mathContent.includes('\\\\')) {
-          // Unescape: \\ -> \
-          mathContent = mathContent.replace(/\\\\/g, '\\');
-        }
-        
-        if (mathMatch.type === 'display') {
-          parts.push(<BlockMath key={`math-${mathMatch.start}`} math={mathContent} />);
+        if (match.type === 'display') {
+          parts.push(
+            <div key={`display-${idx}`} className="my-4 overflow-x-auto">
+              <BlockMath math={match.content} />
+            </div>
+          );
         } else {
-          parts.push(<InlineMath key={`math-${mathMatch.start}`} math={mathContent} />);
+          parts.push(
+            <InlineMath key={`inline-${idx}`} math={match.content} />
+          );
         }
-      } catch (e) {
-        // If KaTeX fails, just show the raw LaTeX
-        console.error('KaTeX rendering error:', e, 'Content:', mathMatch.content);
-        parts.push(`$${mathMatch.type === 'display' ? '$' : ''}${mathMatch.content}${mathMatch.type === 'display' ? '$' : ''}$`);
+      } catch (error) {
+        console.error('[LaTeX Error]', error);
+        parts.push(`[Math Error: ${match.content}]`);
       }
-      
-      lastIndex = mathMatch.end;
+
+      lastIndex = match.end;
     });
-    
+
     // Add remaining text
     if (lastIndex < content.length) {
       parts.push(content.substring(lastIndex));
     }
-    
-    // If no math found, just render as markdown
-    if (parts.length === 1 && typeof parts[0] === 'string') {
-      return (
-        <ReactMarkdown className="markdown-content">
-          {parts[0]}
-        </ReactMarkdown>
-      );
-    }
-    
-    // Render mixed content
-    return (
-      <div className="markdown-content">
-        {parts.map((part, idx) => {
-          if (typeof part === 'string') {
-            return (
-              <ReactMarkdown key={`text-${idx}`}>
-                {part}
-              </ReactMarkdown>
-            );
-          }
-          return part;
-        })}
-      </div>
-    );
+
+    return <div className="markdown-content">{parts}</div>;
   };
 
   return (
@@ -447,6 +424,10 @@ export default function ResearchAssistant({ className }: ResearchAssistantProps)
 
         {activeTab === 'explain' && (
           <div className="max-w-4xl mx-auto space-y-6">
+            {(() => {
+              console.log('[LaTeX Debug] Explain tab active, explanationResult exists:', !!explanationResult);
+              return null;
+            })()}
             {/* Explanation Input Form */}
             <div className="card p-6 space-y-4">
               <h2 className="heading-3">Topic Explanation</h2>
@@ -547,7 +528,9 @@ export default function ResearchAssistant({ className }: ResearchAssistantProps)
             </div>
 
             {/* Explanation Results */}
-            {explanationResult && (
+            {explanationResult && (() => {
+              console.log('[LaTeX Debug] Rendering explanation result:', explanationResult);
+              return (
               <div className="card p-6 space-y-6 fade-in">
                 <div className="flex items-start justify-between">
                   <h3 className="heading-3">{explanationResult.topic}</h3>
@@ -584,7 +567,10 @@ export default function ResearchAssistant({ className }: ResearchAssistantProps)
                 <div>
                   <h4 className="font-semibold mb-2">Introduction</h4>
                   <div className="text-[var(--text-secondary)]">
-                    {renderMathMarkdown(explanationResult.introduction)}
+                    {(() => {
+                      console.log('[LaTeX Debug] Rendering introduction:', explanationResult.introduction);
+                      return renderMathMarkdown(explanationResult.introduction);
+                    })()}
                   </div>
                 </div>
 
@@ -594,7 +580,10 @@ export default function ResearchAssistant({ className }: ResearchAssistantProps)
                     <div key={idx} className="p-4 bg-[var(--bg-tertiary)] rounded-lg">
                       <h5 className="font-semibold text-primary-600 mb-2">{step.title}</h5>
                       <div className="markdown-content">
-                        {renderMathMarkdown(step.content)}
+                        {(() => {
+                          console.log('[LaTeX Debug] Rendering step content:', step.title, step.content);
+                          return renderMathMarkdown(step.content);
+                        })()}
                       </div>
                     </div>
                   ))}
@@ -632,7 +621,8 @@ export default function ResearchAssistant({ className }: ResearchAssistantProps)
                   </div>
                 )}
               </div>
-            )}
+              );
+            })()}
           </div>
         )}
 

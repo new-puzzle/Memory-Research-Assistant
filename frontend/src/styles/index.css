@@ -187,26 +187,73 @@
   }
 }
 
-/* Math equation styling */
-.katex-display {
-  @apply my-4 overflow-x-auto;
+/* Main wrapper - reduce spacing */
+.math-content-wrapper {
+  line-height: 1.6;
 }
 
+/* Text sections - minimal spacing */
+.markdown-text {
+  display: inline;
+}
+
+.markdown-text p {
+  display: inline;
+  margin: 0;
+}
+
+/* Display math - controlled spacing */
+.math-display {
+  margin: 1rem 0;
+  padding: 0.75rem;
+  background: rgba(59, 130, 246, 0.05);
+  border-radius: 6px;
+  overflow-x: auto;
+}
+
+.math-display .katex-display {
+  margin: 0 !important;
+}
+
+/* Inline math - tight integration with text */
+.math-inline {
+  display: inline;
+  margin: 0 2px;
+  white-space: nowrap;
+}
+
+.math-inline .katex {
+  font-size: 1.05em;
+}
+
+/* Error display */
+.math-error {
+  color: #ef4444;
+  background: #fee;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-size: 0.9em;
+}
+
+/* Better overall math display */
 .katex {
   font-size: 1.1em;
 }
 
-/* Ensure matrices and arrays render properly */
+.katex-display {
+  text-align: center;
+}
+
+/* Better matrix/array styling */
 .katex .vlist-t {
   display: inline-table;
   vertical-align: middle;
 }
 
 .katex .arraycolsep {
-  width: 0.5em;
+  width: 0.8em;
 }
 
-/* Fix for matrix brackets and delimiters */
 .katex .delimsizing {
   display: inline-block;
   vertical-align: middle;
