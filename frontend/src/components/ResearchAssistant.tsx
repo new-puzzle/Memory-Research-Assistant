@@ -6,6 +6,8 @@ import { Search, BookOpen, Loader2, Download, Copy, Check, History, X, Plus } fr
 import ReactMarkdown from 'react-markdown';
 import { InlineMath, BlockMath } from 'react-katex';
 import 'katex/dist/katex.min.css';
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
 import apiClient from '@/utils/api';
 import { copyToClipboard, downloadFile } from '@/utils/helpers';
 import { cn } from '@/utils/helpers';
@@ -121,11 +123,380 @@ export default function ResearchAssistant({ className }: ResearchAssistantProps)
     }
   };
 
-  const handleDownload = (content: string, filename: string) => {
-    downloadFile(content, filename, 'text/markdown');
+  const formatExplanationAsMarkdown = (result: ExplanationResult): string => {
+    // Helper function to wrap unwrapped LaTeX expressions in $$...$$
+    const wrapUnwrappedLatex = (text: string): string => {
+      // First, fix malformed $$ blocks (like $$...$ that should be $$...$$)
+      let fixedText = text;
+      // Fix cases where $$ starts but ends with single $ followed by markdown/text
+      // Pattern: $$...LaTeX content...$**text or $$...LaTeX content...$text
+      // Match $$ followed by content, then $ followed by markdown patterns
+      fixedText = fixedText.replace(/\$\$([\s\S]*?)\$(\*\*[^*]|##|\[[A-Z]|\n\n[A-Z])/g, (match, content, nextPart) => {
+        // Check if content looks like LaTeX (contains \ or math operators)
+        if (/\\[a-zA-Z]|[=+\-*/<>]/.test(content)) {
+          // This is a broken $$ block - fix it
+          return '$$' + content + '$$' + nextPart;
+        }
+        return match;
+      });
+      // Also handle simpler case: $$...$** (markdown bold starts immediately)
+      fixedText = fixedText.replace(/\$\$([\s\S]*?)\$(\*\*)/g, (match, content, nextPart) => {
+        if (/\\[a-zA-Z]|[=+\-*/<>]/.test(content)) {
+          return '$$' + content + '$$' + nextPart;
+        }
+        return match;
+      });
+      
+      // Identify and protect already-wrapped LaTeX
+      const protectedRanges: Array<{ start: number; end: number }> = [];
+      
+      // Find all $$...$$ blocks (display math) - non-greedy to handle multiple blocks
+      const displayMathRegex = /\$\$[\s\S]*?\$\$/g;
+      let match;
+      while ((match = displayMathRegex.exec(fixedText)) !== null) {
+        protectedRanges.push({ start: match.index, end: match.index + match[0].length });
+      }
+      
+      // Find all $...$ blocks (inline math) - but not $$
+      const inlineMathRegex = /\$(?!\$)([^$\n]+?)\$(?!\$)/g;
+      inlineMathRegex.lastIndex = 0;
+      while ((match = inlineMathRegex.exec(fixedText)) !== null) {
+        protectedRanges.push({ start: match.index, end: match.index + match[0].length });
+      }
+      
+      // Use fixedText for the rest of processing
+      text = fixedText;
+      
+      // Function to check if a position is within a protected range
+      const isProtected = (pos: number): boolean => {
+        return protectedRanges.some(range => pos >= range.start && pos < range.end);
+      };
+      
+      // Find unwrapped LaTeX expressions - only wrap clearly standalone expressions
+      const latexMatches: Array<{ start: number; end: number; content: string }> = [];
+      
+      // Pattern: \nabla f = \left(...\right) or similar standalone expressions
+      // Look for expressions that start with \nabla or \partial and contain = and \left(...\right)
+      const standaloneMathPattern = /(\\nabla\s+[^$\n=]+?\s*=\s*\\left\([^)]+?\\right\))/g;
+      standaloneMathPattern.lastIndex = 0;
+      while ((match = standaloneMathPattern.exec(text)) !== null) {
+        if (!isProtected(match.index)) {
+          const exprStart = match.index;
+          const exprEnd = match.index + match[0].length;
+          const expression = match[1].trim();
+          
+          // Only add if it's substantial and not already wrapped
+          if (expression.length > 10) {
+            latexMatches.push({ start: exprStart, end: exprEnd, content: expression });
+          }
+        }
+      }
+      
+      // Pattern: Standalone \frac expressions with = sign
+      const fracStandalonePattern = /(\\frac\{[^}]+\}\{[^}]+\}\s*[=+\-*/<>][^$\n]*?)/g;
+      fracStandalonePattern.lastIndex = 0;
+      while ((match = fracStandalonePattern.exec(text)) !== null) {
+        if (!isProtected(match.index)) {
+          const exprStart = match.index;
+          let exprEnd = match.index + match[0].length;
+          
+          // Extend to end of line if it's clearly standalone, but stop at non-LaTeX content
+          const before = text.substring(Math.max(0, exprStart - 10), exprStart);
+          const after = text.substring(exprEnd, Math.min(text.length, exprEnd + 50));
+          
+          // Only wrap if it's not inline (not followed by lowercase letter or comma)
+          if (!after.trim().match(/^[a-z,]/) && !before.trim().endsWith('$')) {
+            // Extend carefully - stop at $, \n, or text that doesn't look like LaTeX
+            while (exprEnd < text.length && !isProtected(exprEnd)) {
+              const char = text[exprEnd];
+              
+              // Stop at newline
+              if (char === '\n') break;
+              
+              // Stop at $ (might be start of new math block or end of current)
+              if (char === '$') {
+                // Check if it's $$ (end of display math) or $ (end of inline)
+                const nextChar = exprEnd + 1 < text.length ? text[exprEnd + 1] : '';
+                if (nextChar === '$') {
+                  // It's $$, stop before it
+                  break;
+                } else {
+                  // It's $, might be end of inline math - stop before it
+                  break;
+                }
+              }
+              
+              // Stop if we hit text that doesn't look like LaTeX (like ** for markdown bold)
+              const remaining = text.substring(exprEnd, Math.min(text.length, exprEnd + 5));
+              if (remaining.startsWith('**') || remaining.startsWith('##') || remaining.match(/^[A-Z]/)) {
+                // Check if it's actually part of LaTeX (like \textbf) or real text
+                const prev5 = text.substring(Math.max(0, exprEnd - 5), exprEnd);
+                if (!prev5.includes('\\')) {
+                  // Not LaTeX, stop here
+                  break;
+                }
+              }
+              
+              exprEnd++;
+            }
+            
+            const expression = text.substring(exprStart, exprEnd).trim();
+            // Only add if expression ends with LaTeX content, not text
+            if (expression.length > 5 && /[=+\-*/<>\)\}\\]$/.test(expression)) {
+              const overlaps = latexMatches.some(
+                e => (exprStart >= e.start && exprStart < e.end) ||
+                     (exprEnd > e.start && exprEnd <= e.end) ||
+                     (exprStart <= e.start && exprEnd >= e.end)
+              );
+              if (!overlaps) {
+                latexMatches.push({ start: exprStart, end: exprEnd, content: expression });
+              }
+            }
+          }
+        }
+      }
+      
+      // Sort matches by start position (descending) to replace from end to start
+      latexMatches.sort((a, b) => b.start - a.start);
+      
+      // Replace unwrapped LaTeX expressions
+      let result = text;
+      for (const match of latexMatches) {
+        // Double-check it's not already wrapped
+        const before = result.substring(Math.max(0, match.start - 2), match.start);
+        const after = result.substring(match.end, Math.min(result.length, match.end + 2));
+        
+        if (!before.endsWith('$$') && !after.startsWith('$$')) {
+          result = result.substring(0, match.start) + 
+                   '$$' + match.content + '$$' + 
+                   result.substring(match.end);
+        }
+      }
+      
+      return result;
+    };
+    
+    // Helper function to format content with LaTeX wrapping
+    const formatContent = (content: string): string => {
+      let formatted = wrapUnwrappedLatex(content);
+      
+      // First, fix any broken $$ blocks where newlines were inserted inside
+      // This fixes cases like: $$\n...\n$$ or $$...\n\n$$
+      formatted = formatted.replace(/\$\$\s*\n+([^\$]+?)\n+\$\$/g, '$$$1$$');
+      formatted = formatted.replace(/\$\$\s*\n+([^\$]+?)\$\$/g, '$$$1$$');
+      formatted = formatted.replace(/\$\$([^\$]+?)\n+\s*\$\$/g, '$$$1$$');
+      
+      // Now ensure proper spacing around display math blocks
+      // Use a more careful approach that respects $$ block boundaries
+      // Split by $$ blocks, process each segment separately
+      const parts: string[] = [];
+      let lastIndex = 0;
+      const mathBlockRegex = /\$\$[\s\S]*?\$\$/g;
+      let match;
+      
+      while ((match = mathBlockRegex.exec(formatted)) !== null) {
+        // Add text before the math block
+        const beforeText = formatted.substring(lastIndex, match.index);
+        if (beforeText.trim()) {
+          // Ensure blank line before math block
+          const trimmed = beforeText.trimEnd();
+          if (!trimmed.endsWith('\n\n') && !trimmed.endsWith('\n')) {
+            parts.push(trimmed + '\n\n');
+          } else if (trimmed.endsWith('\n') && !trimmed.endsWith('\n\n')) {
+            parts.push(trimmed + '\n');
+          } else {
+            parts.push(trimmed);
+          }
+        } else if (lastIndex < match.index) {
+          // Empty but we want spacing
+          parts.push('\n\n');
+        }
+        
+        // Add the math block
+        parts.push(match[0]);
+        
+        lastIndex = match.index + match[0].length;
+      }
+      
+      // Add remaining text
+      if (lastIndex < formatted.length) {
+        const remaining = formatted.substring(lastIndex);
+        // Ensure blank line after last math block if there's text after
+        if (parts.length > 0 && remaining.trim()) {
+          const lastPart = parts[parts.length - 1];
+          if (lastPart.endsWith('$$') && !lastPart.endsWith('$$\n\n')) {
+            parts[parts.length - 1] = lastPart + '\n\n';
+          }
+        }
+        parts.push(remaining);
+      }
+      
+      return parts.join('');
+    };
+    
+    let markdown = `# ${result.topic}\n\n`;
+    
+    markdown += `## Introduction\n\n${formatContent(result.introduction)}\n\n`;
+    
+    markdown += `## Step-by-Step Explanation\n\n`;
+    result.steps.forEach((step, idx) => {
+      // Check if title already includes step number, if so don't duplicate it
+      const stepNum = idx + 1;
+      const titleAlreadyHasStep = step.title.toLowerCase().startsWith(`step ${stepNum}`) || 
+                                   step.title.toLowerCase().startsWith(`step ${stepNum}:`);
+      const stepTitle = titleAlreadyHasStep ? step.title : `Step ${stepNum}: ${step.title}`;
+      
+      markdown += `### ${stepTitle}\n\n${formatContent(step.content)}\n\n`;
+    });
+    
+    if (result.analogies && result.analogies.length > 0) {
+      markdown += `## Analogies\n\n`;
+      result.analogies.forEach((analogy, idx) => {
+        markdown += `${idx + 1}. ${formatContent(analogy)}\n\n`;
+      });
+    }
+    
+    if (result.references && result.references.length > 0) {
+      markdown += `## References\n\n`;
+      result.references.forEach((ref) => {
+        markdown += `- [${ref.title}](${ref.url})\n`;
+      });
+    }
+    
+    return markdown;
   };
 
-  const handleClearResult = () => {
+  const formatResearchAsMarkdown = (result: ResearchResult): string => {
+    let markdown = `# ${result.topic}\n\n`;
+    
+    markdown += `## Overview\n\n${result.overview}\n\n`;
+    
+    if (result.key_findings && result.key_findings.length > 0) {
+      markdown += `## Key Findings\n\n`;
+      result.key_findings.forEach((finding) => {
+        markdown += `- ${finding}\n`;
+      });
+      markdown += `\n`;
+    }
+    
+    if (result.connections) {
+      markdown += `## Connections\n\n${result.connections}\n\n`;
+    }
+    
+    if (result.further_reading && result.further_reading.length > 0) {
+      markdown += `## Further Reading\n\n`;
+      result.further_reading.forEach((reading) => {
+        const author = reading.author ? ` by ${reading.author}` : '';
+        markdown += `- [${reading.title}](${reading.url})${author}\n`;
+      });
+    }
+    
+        return markdown;
+    
+      };
+    
+    
+    
+      const handleDownloadAsPdf = async (elementId: string, filename: string) => {
+        try {
+          const input = document.getElementById(elementId);
+    
+          if (!input) {
+            console.error('Element not found for PDF generation!');
+            setError('Element not found for PDF generation. Please try again.');
+            return;
+          }
+    
+          // Show loading state
+          setIsLoading(true);
+    
+          const canvas = await html2canvas(input, {
+            scale: 2, // Higher scale for better quality
+            useCORS: true,
+            allowTaint: true,
+            backgroundColor: '#1a1a1a', // Match your dark theme background
+            logging: false, // Disable console logging from html2canvas
+            windowWidth: input.scrollWidth,
+            windowHeight: input.scrollHeight,
+          });
+    
+          const imgData = canvas.toDataURL('image/png', 1.0);
+    
+          // Use standard A4 page size in mm
+          const pdfWidth = 210; // A4 width in mm
+          const pdfHeight = 297; // A4 height in mm
+          const imgWidth = canvas.width;
+          const imgHeight = canvas.height;
+          
+          // Calculate scaling to fit page width
+          const widthRatio = pdfWidth / imgWidth;
+          const scaledWidth = pdfWidth;
+          const scaledHeight = imgHeight * widthRatio;
+    
+          const pdf = new jsPDF({
+            orientation: 'p',
+            unit: 'mm',
+            format: 'a4',
+          });
+    
+          // Handle multi-page content
+          if (scaledHeight <= pdfHeight) {
+            // Content fits on one page
+            pdf.addImage(imgData, 'PNG', 0, 0, scaledWidth, scaledHeight, undefined, 'FAST');
+          } else {
+            // Content spans multiple pages - split it
+            let remainingHeight = scaledHeight;
+            let yOffset = 0;
+            
+            while (remainingHeight > 0) {
+              const pageHeight = Math.min(pdfHeight, remainingHeight);
+              const sourceY = (scaledHeight - remainingHeight) / widthRatio;
+              const sourceHeight = pageHeight / widthRatio;
+              
+              // Extract portion of image for this page
+              const pageCanvas = document.createElement('canvas');
+              pageCanvas.width = imgWidth;
+              pageCanvas.height = sourceHeight;
+              const ctx = pageCanvas.getContext('2d');
+              
+              if (!ctx) {
+                throw new Error('Could not create canvas context');
+              }
+              
+              ctx.drawImage(canvas, 0, sourceY, imgWidth, sourceHeight, 0, 0, imgWidth, sourceHeight);
+              const pageImgData = pageCanvas.toDataURL('image/png', 1.0);
+              
+              pdf.addImage(pageImgData, 'PNG', 0, yOffset, scaledWidth, pageHeight, undefined, 'FAST');
+              
+              remainingHeight -= pdfHeight;
+              
+              if (remainingHeight > 0) {
+                pdf.addPage();
+                yOffset = 0;
+              }
+            }
+          }
+    
+          pdf.save(filename);
+          setIsLoading(false);
+        } catch (error: any) {
+          console.error('Error generating PDF:', error);
+          setError(`Failed to generate PDF: ${error.message || 'Unknown error'}`);
+          setIsLoading(false);
+        }
+      };
+    
+    
+    
+      const handleDownload = (content: string, filename: string) => {
+    
+        downloadFile(content, filename, 'text/markdown');
+    
+      };
+    
+    
+    
+      const handleClearResult = () => {
     if (activeTab === 'research') {
       setResearchResult(null);
       setResearchTopic('');
@@ -344,7 +715,7 @@ export default function ResearchAssistant({ className }: ResearchAssistantProps)
 
             {/* Research Results */}
             {researchResult && (
-              <div className="card p-6 space-y-6 fade-in">
+              <div id="research-result-content" className="card p-6 space-y-6 fade-in">
                 <div className="flex items-start justify-between">
                   <h3 className="heading-3">{researchResult.topic}</h3>
                   <div className="flex gap-2">
@@ -364,9 +735,9 @@ export default function ResearchAssistant({ className }: ResearchAssistantProps)
                     </button>
                     <button
                       onClick={() =>
-                        handleDownload(
-                          JSON.stringify(researchResult, null, 2),
-                          `research-${researchResult.topic.toLowerCase().replace(/\s+/g, '-')}.md`
+                        handleDownloadAsPdf(
+                          'research-result-content',
+                          `research-${researchResult.topic.toLowerCase().replace(/\s+/g, '-')}.pdf`
                         )
                       }
                       className="btn-ghost"
@@ -531,7 +902,7 @@ export default function ResearchAssistant({ className }: ResearchAssistantProps)
             {explanationResult && (() => {
               console.log('[LaTeX Debug] Rendering explanation result:', explanationResult);
               return (
-              <div className="card p-6 space-y-6 fade-in">
+              <div id="explanation-result-content" className="card p-6 space-y-6 fade-in">
                 <div className="flex items-start justify-between">
                   <h3 className="heading-3">{explanationResult.topic}</h3>
                   <div className="flex gap-2">
@@ -551,9 +922,9 @@ export default function ResearchAssistant({ className }: ResearchAssistantProps)
                     </button>
                     <button
                       onClick={() =>
-                        handleDownload(
-                          JSON.stringify(explanationResult, null, 2),
-                          `explanation-${explanationResult.topic.toLowerCase().replace(/\s+/g, '-')}.md`
+                        handleDownloadAsPdf(
+                          'explanation-result-content',
+                          `explanation-${explanationResult.topic.toLowerCase().replace(/\s+/g, '-')}.pdf`
                         )
                       }
                       className="btn-ghost"
@@ -673,26 +1044,6 @@ export default function ResearchAssistant({ className }: ResearchAssistantProps)
                             {new Date(item.timestamp).toLocaleString()}
                           </p>
                         </div>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if (item.type === 'research') {
-                              handleDownload(
-                                JSON.stringify(item.data, null, 2),
-                                `research-${item.topic.toLowerCase().replace(/\s+/g, '-')}.json`
-                              );
-                            } else {
-                              handleDownload(
-                                JSON.stringify(item.data, null, 2),
-                                `explanation-${item.topic.toLowerCase().replace(/\s+/g, '-')}.json`
-                              );
-                            }
-                          }}
-                          className="btn-ghost p-2"
-                          title="Download"
-                        >
-                          <Download size={16} />
-                        </button>
                       </div>
                     </div>
                   ))}
