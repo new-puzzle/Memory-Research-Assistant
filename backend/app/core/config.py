@@ -53,7 +53,7 @@ class Settings(BaseSettings):
 
     # AI Model Settings
     default_ai_model: str = Field(default="claude", env="DEFAULT_AI_MODEL")
-    claude_model: str = "claude-3-5-sonnet-20241022"  # Use latest Sonnet
+    claude_model: str = "claude-sonnet-4-5-20250929"  # Use latest Sonnet 4.5
     together_model: str = "meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo"
     deepseek_model: str = "deepseek-chat"
     mistral_model: str = "mistral-large-latest"

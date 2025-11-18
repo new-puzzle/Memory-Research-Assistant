@@ -14,8 +14,8 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { Mic, Volume2, Square, Loader2 } from 'lucide-react';
-import { api } from '../utils/api';
-import useAppStore from '../services/store';
+import { apiClient } from '../utils/api';
+import { useAppStore } from '../services/store';
 
 interface VoiceControlsProps {
   onTranscript?: (text: string) => void;

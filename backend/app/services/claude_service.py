@@ -22,8 +22,8 @@ class ClaudeService:
     def __init__(self):
         self.client = Anthropic(api_key=settings.anthropic_api_key)
         self.model = settings.claude_model
-        self.max_tokens = settings.claude_max_tokens
-        self.temperature = settings.claude_temperature
+        self.max_tokens = settings.max_tokens
+        self.temperature = settings.temperature
 
     async def synthesize_research(self, request: ResearchRequest) -> ResearchResponse:
         """

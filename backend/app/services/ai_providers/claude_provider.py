@@ -22,7 +22,11 @@ class ClaudeProvider(BaseAIProvider):
 
     def __init__(self, api_key: str, model_name: str, max_tokens: int = 4096, temperature: float = 0.7):
         super().__init__(api_key, model_name, max_tokens, temperature)
-        self.client = Anthropic(api_key=api_key)
+        import httpx
+        self.client = Anthropic(
+            api_key=api_key,
+            timeout=httpx.Timeout(300.0, connect=10.0)  # 5 minute timeout for long responses
+        )
 
     async def generate_completion(self, prompt: str, system_prompt: Optional[str] = None) -> str:
         """Generate a completion using Claude."""
