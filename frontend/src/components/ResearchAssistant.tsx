@@ -2,7 +2,7 @@
  * Research Assistant component for AI-powered research and explanations
  */
 import React, { useState } from 'react';
-import { Search, BookOpen, Loader2, Download, Copy, Check, History, X } from 'lucide-react';
+import { Search, BookOpen, Loader2, Download, Copy, Check, History, X, Plus } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { InlineMath, BlockMath } from 'react-katex';
 import apiClient from '@/utils/api';
@@ -118,6 +118,19 @@ export default function ResearchAssistant({ className }: ResearchAssistantProps)
 
   const handleDownload = (content: string, filename: string) => {
     downloadFile(content, filename, 'text/markdown');
+  };
+
+  const handleClearResult = () => {
+    if (activeTab === 'research') {
+      setResearchResult(null);
+      setResearchTopic('');
+      setResearchContext('');
+    } else {
+      setExplanationResult(null);
+      setExplainTopic('');
+      setPrerequisite('');
+      setRelatedField('');
+    }
   };
 
   // Process content to render LaTeX equations properly
@@ -359,6 +372,13 @@ export default function ResearchAssistant({ className }: ResearchAssistantProps)
                   <h3 className="heading-3">{researchResult.topic}</h3>
                   <div className="flex gap-2">
                     <button
+                      onClick={handleClearResult}
+                      className="btn-ghost"
+                      title="Start New Research"
+                    >
+                      <Plus size={18} />
+                    </button>
+                    <button
                       onClick={() => handleCopy(JSON.stringify(researchResult, null, 2))}
                       className="btn-ghost"
                       title="Copy"
@@ -532,6 +552,13 @@ export default function ResearchAssistant({ className }: ResearchAssistantProps)
                 <div className="flex items-start justify-between">
                   <h3 className="heading-3">{explanationResult.topic}</h3>
                   <div className="flex gap-2">
+                    <button
+                      onClick={handleClearResult}
+                      className="btn-ghost"
+                      title="Start New Explanation"
+                    >
+                      <Plus size={18} />
+                    </button>
                     <button
                       onClick={() => handleCopy(JSON.stringify(explanationResult, null, 2))}
                       className="btn-ghost"
