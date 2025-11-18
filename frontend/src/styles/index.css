@@ -192,6 +192,30 @@
   @apply my-4 overflow-x-auto;
 }
 
+.katex {
+  font-size: 1.1em;
+}
+
+/* Ensure matrices and arrays render properly */
+.katex .vlist-t {
+  display: inline-table;
+  vertical-align: middle;
+}
+
+.katex .arraycolsep {
+  width: 0.5em;
+}
+
+/* Fix for matrix brackets and delimiters */
+.katex .delimsizing {
+  display: inline-block;
+  vertical-align: middle;
+}
+
+.katex .pstrut {
+  display: inline-block;
+}
+
 /* Markdown content styling */
 .markdown-content {
   @apply prose prose-slate dark:prose-invert max-w-none;
