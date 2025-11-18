@@ -2,7 +2,7 @@
  * Research Assistant component for AI-powered research and explanations
  */
 import React, { useState } from 'react';
-import { Search, BookOpen, Loader2, Download, Copy, Check } from 'lucide-react';
+import { Search, BookOpen, Loader2, Download, Copy, Check, History, X } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { InlineMath, BlockMath } from 'react-katex';
 import apiClient from '@/utils/api';
@@ -15,7 +15,7 @@ interface ResearchAssistantProps {
   className?: string;
 }
 
-type TabType = 'research' | 'explain';
+type TabType = 'research' | 'explain' | 'history';
 
 interface ResearchResult {
   topic: string;
@@ -35,24 +35,30 @@ interface ExplanationResult {
 }
 
 export default function ResearchAssistant({ className }: ResearchAssistantProps) {
-  const { selectedModel } = useAppStore();
+  const { 
+    selectedModel, 
+    researchResult, 
+    setResearchResult, 
+    explanationResult, 
+    setExplanationResult,
+    addToHistory,
+    researchHistory 
+  } = useAppStore();
   const [activeTab, setActiveTab] = useState<TabType>('research');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
-  // Research state
+  // Research state (form inputs - not persisted)
   const [researchTopic, setResearchTopic] = useState('');
   const [researchContext, setResearchContext] = useState('');
   const [includeArxiv, setIncludeArxiv] = useState(true);
-  const [researchResult, setResearchResult] = useState<ResearchResult | null>(null);
 
-  // Explanation state
+  // Explanation state (form inputs - not persisted)
   const [explainTopic, setExplainTopic] = useState('');
   const [prerequisite, setPrerequisite] = useState('');
   const [relatedField, setRelatedField] = useState('');
   const [complexityLevel, setComplexityLevel] = useState<'beginner' | 'intermediate' | 'advanced'>('intermediate');
-  const [explanationResult, setExplanationResult] = useState<ExplanationResult | null>(null);
 
   const handleFetchResearch = async () => {
     if (!researchTopic.trim()) return;
@@ -68,7 +74,9 @@ export default function ResearchAssistant({ className }: ResearchAssistantProps)
         include_arxiv: includeArxiv,
       }, selectedModel);
 
-      setResearchResult(result as ResearchResult);
+      const researchData = result as ResearchResult;
+      setResearchResult(researchData);
+      addToHistory('research', researchTopic, researchData);
     } catch (err: any) {
       setError(err.response?.data?.detail || 'Failed to fetch research. Please try again.');
     } finally {
@@ -90,7 +98,9 @@ export default function ResearchAssistant({ className }: ResearchAssistantProps)
         complexity_level: complexityLevel,
       }, selectedModel);
 
-      setExplanationResult(result as ExplanationResult);
+      const explanationData = result as ExplanationResult;
+      setExplanationResult(explanationData);
+      addToHistory('explain', explainTopic, explanationData);
     } catch (err: any) {
       setError(err.response?.data?.detail || 'Failed to explain topic. Please try again.');
     } finally {
@@ -110,32 +120,115 @@ export default function ResearchAssistant({ className }: ResearchAssistantProps)
     downloadFile(content, filename, 'text/markdown');
   };
 
-  // Render math in markdown
+  // Process content to render LaTeX equations properly
   const renderMathMarkdown = (content: string) => {
+    // Split content by LaTeX equations
+    const parts: (string | JSX.Element)[] = [];
+    let lastIndex = 0;
+    
+    // Match display math: $$...$$
+    const displayMathRegex = /\$\$([\s\S]*?)\$\$/g;
+    // Match inline math: $...$ (but not $$) - simpler regex without lookbehind
+    const inlineMathRegex = /\$(?!\$)([^$\n]+?)\$(?!\$)/g;
+    
+    // First, handle display math ($$...$$)
+    let match;
+    const displayMatches: Array<{ start: number; end: number; content: string }> = [];
+    while ((match = displayMathRegex.exec(content)) !== null) {
+      displayMatches.push({
+        start: match.index,
+        end: match.index + match[0].length,
+        content: match[1].trim(),
+      });
+    }
+    
+    // Then handle inline math ($...$)
+    const inlineMatches: Array<{ start: number; end: number; content: string }> = [];
+    // Reset regex
+    inlineMathRegex.lastIndex = 0;
+    while ((match = inlineMathRegex.exec(content)) !== null) {
+      // Check if this inline math is inside a display math block
+      const isInsideDisplay = displayMatches.some(
+        (dm) => match!.index >= dm.start && match!.index < dm.end
+      );
+      if (!isInsideDisplay) {
+        inlineMatches.push({
+          start: match.index,
+          end: match.index + match[0].length,
+          content: match[1].trim(),
+        });
+      }
+    }
+    
+    // Combine and sort all matches
+    const allMatches = [
+      ...displayMatches.map((m) => ({ ...m, type: 'display' as const })),
+      ...inlineMatches.map((m) => ({ ...m, type: 'inline' as const })),
+    ].sort((a, b) => a.start - b.start);
+    
+    // Build the parts array
+    allMatches.forEach((mathMatch) => {
+      // Add text before the match
+      if (mathMatch.start > lastIndex) {
+        const textBefore = content.substring(lastIndex, mathMatch.start);
+        if (textBefore) {
+          parts.push(textBefore);
+        }
+      }
+      
+      // Add the math component
+      try {
+        // Content from JSON is already unescaped, but check if we need to handle escaped backslashes
+        // Only unescape if we detect double backslashes (from JSON string representation)
+        let mathContent = mathMatch.content;
+        // Check if content has escaped backslashes (like \\begin) - this happens when content is double-encoded
+        if (mathContent.includes('\\\\')) {
+          // Unescape: \\ -> \
+          mathContent = mathContent.replace(/\\\\/g, '\\');
+        }
+        
+        if (mathMatch.type === 'display') {
+          parts.push(<BlockMath key={`math-${mathMatch.start}`} math={mathContent} />);
+        } else {
+          parts.push(<InlineMath key={`math-${mathMatch.start}`} math={mathContent} />);
+        }
+      } catch (e) {
+        // If KaTeX fails, just show the raw LaTeX
+        console.error('KaTeX rendering error:', e, 'Content:', mathMatch.content);
+        parts.push(`$${mathMatch.type === 'display' ? '$' : ''}${mathMatch.content}${mathMatch.type === 'display' ? '$' : ''}$`);
+      }
+      
+      lastIndex = mathMatch.end;
+    });
+    
+    // Add remaining text
+    if (lastIndex < content.length) {
+      parts.push(content.substring(lastIndex));
+    }
+    
+    // If no math found, just render as markdown
+    if (parts.length === 1 && typeof parts[0] === 'string') {
+      return (
+        <ReactMarkdown className="markdown-content">
+          {parts[0]}
+        </ReactMarkdown>
+      );
+    }
+    
+    // Render mixed content
     return (
-      <ReactMarkdown
-        className="markdown-content"
-        components={{
-          code({ node, inline, className, children, ...props }) {
-            const match = /language-(\w+)/.exec(className || '');
-            const code = String(children).replace(/\n$/, '');
-
-            // Check if it's a LaTeX equation
-            if (code.startsWith('$') && code.endsWith('$')) {
-              const equation = code.slice(1, -1);
-              return inline ? <InlineMath math={equation} /> : <BlockMath math={equation} />;
-            }
-
+      <div className="markdown-content">
+        {parts.map((part, idx) => {
+          if (typeof part === 'string') {
             return (
-              <code className={className} {...props}>
-                {children}
-              </code>
+              <ReactMarkdown key={`text-${idx}`}>
+                {part}
+              </ReactMarkdown>
             );
-          },
-        }}
-      >
-        {content}
-      </ReactMarkdown>
+          }
+          return part;
+        })}
+      </div>
     );
   };
 
@@ -162,6 +255,16 @@ export default function ResearchAssistant({ className }: ResearchAssistantProps)
         >
           <BookOpen size={18} />
           Explain Topic
+        </button>
+        <button
+          onClick={() => setActiveTab('history')}
+          className={cn(
+            'btn flex items-center gap-2',
+            activeTab === 'history' ? 'btn-primary' : 'btn-secondary'
+          )}
+        >
+          <History size={18} />
+          History ({researchHistory.length})
         </button>
       </div>
 
@@ -453,7 +556,9 @@ export default function ResearchAssistant({ className }: ResearchAssistantProps)
 
                 <div>
                   <h4 className="font-semibold mb-2">Introduction</h4>
-                  <p className="text-[var(--text-secondary)]">{explanationResult.introduction}</p>
+                  <div className="text-[var(--text-secondary)]">
+                    {renderMathMarkdown(explanationResult.introduction)}
+                  </div>
                 </div>
 
                 <div className="space-y-4">
@@ -501,6 +606,82 @@ export default function ResearchAssistant({ className }: ResearchAssistantProps)
                 )}
               </div>
             )}
+          </div>
+        )}
+
+        {/* History Tab */}
+        {activeTab === 'history' && (
+          <div className="max-w-4xl mx-auto space-y-4">
+            <div className="card p-6">
+              <h2 className="heading-3 mb-4">Research History</h2>
+              <p className="text-[var(--text-secondary)] mb-4">
+                Your past research and explanations are automatically saved. Click on any item to view it.
+              </p>
+              
+              {researchHistory.length === 0 ? (
+                <div className="text-center py-12 text-[var(--text-secondary)]">
+                  <History size={48} className="mx-auto mb-4 opacity-50" />
+                  <p>No history yet. Start researching or explaining topics to build your history!</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {researchHistory.map((item, idx) => (
+                    <div
+                      key={idx}
+                      className="p-4 bg-[var(--bg-tertiary)] rounded-lg hover:bg-[var(--bg-secondary)] transition-colors cursor-pointer"
+                      onClick={() => {
+                        if (item.type === 'research') {
+                          setResearchResult(item.data as ResearchResult);
+                          setActiveTab('research');
+                        } else {
+                          setExplanationResult(item.data as ExplanationResult);
+                          setActiveTab('explain');
+                        }
+                      }}
+                    >
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            {item.type === 'research' ? (
+                              <Search size={16} className="text-primary-600" />
+                            ) : (
+                              <BookOpen size={16} className="text-primary-600" />
+                            )}
+                            <span className="text-sm font-medium text-primary-600">
+                              {item.type === 'research' ? 'Research' : 'Explanation'}
+                            </span>
+                          </div>
+                          <h4 className="font-semibold mb-1">{item.topic}</h4>
+                          <p className="text-sm text-[var(--text-secondary)]">
+                            {new Date(item.timestamp).toLocaleString()}
+                          </p>
+                        </div>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (item.type === 'research') {
+                              handleDownload(
+                                JSON.stringify(item.data, null, 2),
+                                `research-${item.topic.toLowerCase().replace(/\s+/g, '-')}.json`
+                              );
+                            } else {
+                              handleDownload(
+                                JSON.stringify(item.data, null, 2),
+                                `explanation-${item.topic.toLowerCase().replace(/\s+/g, '-')}.json`
+                              );
+                            }
+                          }}
+                          className="btn-ghost p-2"
+                          title="Download"
+                        >
+                          <Download size={16} />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         )}
 

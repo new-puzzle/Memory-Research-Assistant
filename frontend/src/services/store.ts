@@ -59,6 +59,23 @@ interface AIModel {
   description: string;
 }
 
+export interface ResearchResult {
+  topic: string;
+  overview: string;
+  key_findings: string[];
+  connections?: string;
+  further_reading: Array<{ title: string; author?: string; url: string }>;
+}
+
+export interface ExplanationResult {
+  topic: string;
+  introduction: string;
+  steps: Array<{ title: string; content: string }>;
+  analogies: string[];
+  references: Array<{ title: string; url: string }>;
+  latex_equations?: string[];
+}
+
 interface AppState {
   isDarkMode: boolean;
   toggleDarkMode: () => void;
@@ -74,6 +91,13 @@ interface AppState {
   setSelectedModel: (model: string) => void;
   availableModels: AIModel[];
   setAvailableModels: (models: AIModel[]) => void;
+  // Research persistence
+  researchResult: ResearchResult | null;
+  setResearchResult: (result: ResearchResult | null) => void;
+  explanationResult: ExplanationResult | null;
+  setExplanationResult: (result: ExplanationResult | null) => void;
+  researchHistory: Array<{ type: 'research' | 'explain'; topic: string; timestamp: string; data: ResearchResult | ExplanationResult }>;
+  addToHistory: (type: 'research' | 'explain', topic: string, data: ResearchResult | ExplanationResult) => void;
 }
 
 // Auth store
@@ -120,6 +144,19 @@ export const useAppStore = create<AppState>()(
       setSelectedModel: (model: string) => set({ selectedModel: model }),
       availableModels: [],
       setAvailableModels: (models: AIModel[]) => set({ availableModels: models }),
+      // Research persistence
+      researchResult: null,
+      setResearchResult: (result: ResearchResult | null) => set({ researchResult: result }),
+      explanationResult: null,
+      setExplanationResult: (result: ExplanationResult | null) => set({ explanationResult: result }),
+      researchHistory: [],
+      addToHistory: (type: 'research' | 'explain', topic: string, data: ResearchResult | ExplanationResult) => 
+        set((state) => ({
+          researchHistory: [
+            { type, topic, timestamp: new Date().toISOString(), data },
+            ...state.researchHistory.slice(0, 49), // Keep last 50 items
+          ],
+        })),
     }),
     {
       name: 'app-storage',
@@ -127,6 +164,9 @@ export const useAppStore = create<AppState>()(
         isDarkMode: state.isDarkMode,
         memoryPalace: state.memoryPalace,
         selectedModel: state.selectedModel,
+        researchResult: state.researchResult,
+        explanationResult: state.explanationResult,
+        researchHistory: state.researchHistory,
       }),
     }
   )
