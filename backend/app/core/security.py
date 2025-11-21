@@ -96,11 +96,13 @@ async def get_current_user(
     Returns user info if valid, raises HTTPException otherwise.
     """
     if not credentials:
+        print("DEBUG: No authentication credentials received.") # Added for debugging
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Not authenticated",
             headers={"WWW-Authenticate": "Bearer"},
         )
+    print(f"DEBUG: Received credentials type: {type(credentials)}, token: {credentials.credentials[:30]}...") # Added for debugging
 
     payload = verify_token(credentials.credentials)
     email: str = payload.get("email")

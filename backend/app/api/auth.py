@@ -40,8 +40,11 @@ async def google_auth(request: GoogleAuthRequest):
                 detail="Email not found in Google token"
             )
 
+        print(f"DEBUG: Google token verified for email: {email}") # Added for debugging
+
         # Check if email domain is allowed
         if not verify_email_domain(email):
+            print(f"DEBUG: Email domain not allowed for email: {email}") # Added for debugging
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Email domain not allowed. Please contact administrator."
@@ -56,6 +59,7 @@ async def google_auth(request: GoogleAuthRequest):
 
         # Create access token
         access_token = create_access_token(data=user_data)
+        print(f"DEBUG: Access token created for user: {email}") # Added for debugging
 
         return TokenResponse(
             access_token=access_token,
@@ -64,16 +68,17 @@ async def google_auth(request: GoogleAuthRequest):
         )
 
     except ValueError as e:
-        # Token verification failed
+        print(f"ERROR: Google token verification failed: {e}") # Added for debugging
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=f"Invalid Google token: {str(e)}"
         )
+    except HTTPException as e: # Catch HTTPException explicitly to re-raise
+        print(f"ERROR: Authentication HTTPException: {e.detail}") # Added for debugging
+        raise
     except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Authentication failed: {str(e)}"
-        )
+        import traceback # Added for debugging
+        print(f"ERROR: General authentication failed: {e}\n{traceback.format_exc()}") # Added for debugging
 
 
 @router.get("/me", response_model=UserInfo)

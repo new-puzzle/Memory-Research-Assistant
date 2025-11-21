@@ -2,6 +2,7 @@
  * API client for backend communication
  */
 import axios, { AxiosInstance, AxiosRequestConfig } from 'axios';
+import { authLogout } from '@/services/store';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 
@@ -34,9 +35,9 @@ class ApiClient {
       (response) => response,
       (error) => {
         if (error.response?.status === 401) {
-          // Unauthorized - clear token and redirect to login
-          localStorage.removeItem('auth_token');
-          window.location.href = '/';
+          // Unauthorized - clear token and let app render LoginPage without hard reload
+          try { localStorage.removeItem('auth_token'); } catch {}
+          try { authLogout(); } catch {}
         }
         return Promise.reject(error);
       }

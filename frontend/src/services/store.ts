@@ -176,3 +176,10 @@ export const useAppStore = create<AppState>()(
 if (useAppStore.getState().isDarkMode) {
   document.documentElement.classList.add('dark');
 }
+
+// Helper to log out from anywhere (e.g., axios interceptor) without forcing navigation
+export const authLogout = () => {
+  try {
+    useAuthStore.getState().logout();
+  } catch {}
+};

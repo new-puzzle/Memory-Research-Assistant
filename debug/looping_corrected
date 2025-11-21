@@ -1,0 +1,60 @@
+Title: Fix for frontend infinite reload loop after login
+
+Summary
+- Symptom: The app reloaded ~3–4 times per second at http://localhost:5174, with backend logs showing 401/“not authorized”.
+- Root cause: A stale/invalid token persisted from a previous session combined with an axios interceptor that forced a hard navigation on 401 created a loop.
+  - Zustand persisted isAuthenticated = true.
+  - On render, components made an authenticated request.
+  - Backend returned 401 (invalid/expired token or new SECRET_KEY).
+  - Interceptor cleared token and executed window.location.href = '/';
+  - The app rehydrated immediately back to an authenticated state and repeated the cycle.
+
+Changes Implemented
+1) Avoid hard reload on 401 in axios interceptor
+   - File: frontend/src/utils/api.ts
+   - Change: On 401, clear localStorage token and call a store logout helper instead of window.location.href.
+   - Result: No forced page refresh; the app drops to LoginPage cleanly.
+
+2) Add a global logout helper (callable from anywhere)
+   - File: frontend/src/services/store.ts
+   - Added export: authLogout() that calls useAuthStore.getState().logout() safely.
+   - Purpose: Allows the interceptor to reset auth state without navigating.
+
+3) Add startup token validation guard
+   - File: frontend/src/App.tsx
+   - Added authChecked state and a useEffect that runs on mount:
+     - If isAuthenticated but no auth_token in localStorage: logout.
+     - If token exists: call /api/v1/auth/me once; on failure: logout.
+     - Show a minimal "Loading..." splash until check completes.
+   - Result: The app never renders protected sections with a bad token; it either stays logged in or lands on LoginPage—no loops.
+
+Behavior After Fix
+- If the stored token is valid: the app loads normally without looping.
+- If the stored token is invalid/expired (e.g., SECRET_KEY changed): the app logs out once and shows the LoginPage, with no reload loop.
+- Any in-session 401 now logs out without reloading the page.
+
+Why This Works
+- Removing window.location.href avoids hard reloads that could repeatedly rehydrate an invalid authenticated state.
+- The bootstrap validator ensures the UI doesn’t make authenticated calls until the token is verified once.
+
+How to Run
+- Start (attached): docker compose up --build
+- Start (detached): docker compose up --build -d
+- Stop (attached): Ctrl+C
+- If ports or containers get stuck: docker compose down && docker compose up --build
+
+Notes & Recommendations
+- Keeping backend SECRET_KEY stable preserves token validity across restarts. Even if it changes, the app will no longer loop; it will simply prompt for login again.
+- Ensure backend CORS_ORIGINS includes http://localhost:5174 when using that port mapping.
+- Consider implementing token refresh logic (using /api/v1/auth/refresh) if needed; the current setup logs out on 401 rather than attempting refresh.
+
+Files Modified (relative to project root)
+- frontend/src/services/store.ts (added authLogout helper)
+- frontend/src/utils/api.ts (interceptor: remove hard reload, call authLogout)
+- frontend/src/App.tsx (startup auth validation + loading gate)
+
+Verification Performed
+1) Start stack: docker compose up --build.
+2) Load http://localhost:5174: LoginPage shown if token invalid; or app loads if valid.
+3) Restart stack: Ctrl+C then docker compose up --build; no looping observed.
+4) Logged in via Google; app remained stable without reloads.

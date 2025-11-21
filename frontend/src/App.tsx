@@ -19,6 +19,39 @@ function App() {
   const [activeView, setActiveView] = useState<'palace' | 'research'>('palace');
   const [showUpload, setShowUpload] = useState(false);
   const [showStorage, setShowStorage] = useState(false);
+  const [authChecked, setAuthChecked] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    const checkAuth = async () => {
+      try {
+        const token = localStorage.getItem('auth_token');
+        if (isAuthenticated) {
+          if (!token) {
+            logout();
+            return;
+          }
+          try {
+            await apiClient.getCurrentUser();
+          } catch {
+            logout();
+          }
+        }
+      } finally {
+        if (!cancelled) setAuthChecked(true);
+      }
+    };
+    checkAuth();
+    return () => { cancelled = true; };
+  }, [isAuthenticated, logout]);
+
+  if (!authChecked) {
+    return (
+      <div className="h-screen w-screen flex items-center justify-center">
+        <div className="text-[var(--text-secondary)]">Loading...</div>
+      </div>
+    );
+  }
 
   if (!isAuthenticated) {
     return <LoginPage />;
