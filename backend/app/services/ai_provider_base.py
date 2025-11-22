@@ -122,63 +122,32 @@ Focus on precision and completeness over accessibility."""
         latex_instruction = """   - LaTeX equations where appropriate (wrapped in $...$ for inline, $$...$$ for display)""" if is_technical else ""
         latex_field = '"latex_equations": ["equation1", "equation2", ...]' if is_technical else ''
 
-        return f"""You are an expert educator creating an interactive, in-depth learning experience.
+        return f"""You are an expert educator. Create a clear, structured explanation.
 
 Topic: {request.topic}{prereq_part}{field_part}
 
 Complexity Level: {request.complexity_level}
 {complexity_guidance.get(request.complexity_level, complexity_guidance["intermediate"])}
 
-Create a comprehensive, structured explanation with these sections:
+Provide:
+1. Introduction: 2-3 sentences
+2. Steps: 3-4 steps with title and concise explanation (150 words max each){latex_instruction}
+3. Key Takeaways: 3 essential points
+4. Analogies: 2 comparisons
+5. References: 2 resources
 
-1. **Introduction**: Brief, engaging overview (2-3 sentences)
+IMPORTANT: Return ONLY valid JSON, no markdown formatting or code blocks.
 
-2. **Steps**: 4-6 logical steps, each with:
-   - Clear, descriptive title
-   - Detailed explanation with examples
-{latex_instruction}
-   - 2-3 follow-up prompts that a learner might ask about THIS specific step
-
-3. **Key Takeaways**: 3-5 bullet points of the most crucial concepts to remember
-
-4. **Common Misconceptions**: 2-3 points that proactively clarify potential confusion
-
-5. **Analogies**: 2-3 intuitive comparisons to make complex ideas easier to grasp
-
-6. **References**: 2-3 resources for deeper study
-
-Format your response as JSON:
 {{
     "introduction": "...",
     "steps": [
-        {{
-            "title": "Step 1 Title",
-            "content": "Detailed explanation with examples...",
-            "follow_up_prompts": [
-                {{"prompt_text": "Explain [specific concept] in more detail", "focus": "concept_name"}},
-                {{"prompt_text": "Show a simplified example of this", "focus": "example"}},
-                {{"prompt_text": "Why is this important?", "focus": "significance"}}
-            ]
-        }},
+        {{"title": "Step Title", "content": "Concise explanation..."}},
         ...
     ],
-    "key_takeaways": ["Key point 1", "Key point 2", ...],
-    "common_misconceptions": [
-        {{"misconception": "Common wrong belief", "clarification": "The correct understanding..."}},
-        ...
-    ],
-    "analogies": ["analogy 1", "analogy 2", ...],
-    "references": [
-        {{"title": "...", "url": "..."}},
-        ...
-    ]{', ' + latex_field if latex_field else ''}
-}}
-
-Guidelines:
-- Make follow_up_prompts natural and specific to each step's content
-- Key takeaways should be memorable and actionable
-- Misconceptions should address real points of confusion learners face
-- Build concepts progressively from simple to complex"""
+    "key_takeaways": ["Point 1", "Point 2", "Point 3"],
+    "analogies": ["analogy 1", "analogy 2"],
+    "references": [{{"title": "...", "url": "..."}}]{', ' + latex_field if latex_field else ''}
+}}"""
 
     def _build_subtopic_prompt(
         self,
