@@ -60,9 +60,9 @@ class Settings(BaseSettings):
     together_model: str = "meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo"
     deepseek_model: str = "deepseek-chat"
     mistral_model: str = "mistral-large-latest"
-    openai_model: str = "gpt-4-turbo-preview"
-    gemini_model: str = "gemini-pro"
-    glm_model: str = "glm-4"
+    openai_model: str = Field(default="gpt-4-turbo", env="OPENAI_MODEL")
+    gemini_model: str = Field(default="gemini-1.5-flash", env="GEMINI_MODEL")
+    glm_model: str = Field(default="glm-4-flash", env="GLM_MODEL")
     max_tokens: int = 8192
     temperature: float = 0.7
 
