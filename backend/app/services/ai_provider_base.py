@@ -32,7 +32,6 @@ class BaseAIProvider(ABC):
         """Provide step-by-step explanation of an advanced topic."""
         pass
 
-    @abstractmethod
     async def explain_subtopic(
         self,
         parent_topic: str,
@@ -52,7 +51,9 @@ class BaseAIProvider(ABC):
         Returns:
             Dict with explanation, examples, and optional analogies
         """
-        pass
+        prompt = self._build_subtopic_prompt(parent_topic, subtopic_focus, context_from_parent, complexity_level)
+        content = await self.generate_completion(prompt)
+        return self._parse_subtopic_response(content)
 
     @abstractmethod
     async def organize_notes(
