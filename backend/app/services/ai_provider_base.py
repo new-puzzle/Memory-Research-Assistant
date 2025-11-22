@@ -166,40 +166,130 @@ CRITICAL: Return ONLY raw JSON. No markdown. Keep each step under 80 words.
         context_from_parent: str,
         complexity_level: str
     ) -> str:
-        """Build prompt for drilling down into a subtopic."""
+        """Build prompt for drilling down into a subtopic with different exploration types."""
 
-        complexity_guidance = {
-            "beginner": "Explain in the simplest possible terms with concrete, everyday examples. Avoid jargon.",
-            "intermediate": "Provide clear explanation with some technical detail. Define terms as needed.",
-            "advanced": "Give comprehensive technical explanation with full rigor and precision."
+        # Define exploration type prompts
+        exploration_prompts = {
+            "simpler": f"""Explain this concept in the SIMPLEST possible terms, like explaining to a curious 10-year-old.
+
+Context: {context_from_parent}
+
+- Use everyday language, no jargon
+- Use familiar objects and situations
+- Short sentences
+- Make it feel obvious and intuitive
+
+Format as JSON:
+{{
+    "explanation": "Super simple explanation...",
+    "examples": ["Simple real-world example"],
+    "analogy": "Everyday analogy that makes it click",
+    "connection_to_main": "How this fits into {parent_topic}..."
+}}""",
+
+            "analogy": f"""Create 2-3 vivid, memorable analogies for this concept.
+
+Context: {context_from_parent}
+
+Each analogy should:
+- Use familiar, concrete situations
+- Capture the key mechanism or relationship
+- Be memorable and intuitive
+
+Format as JSON:
+{{
+    "explanation": "Brief intro to the analogies...",
+    "examples": ["Analogy 1: Like...", "Analogy 2: Similar to...", "Analogy 3: Think of it as..."],
+    "analogy": "The single best analogy that captures the essence",
+    "connection_to_main": "How these analogies illuminate {parent_topic}..."
+}}""",
+
+            "example": f"""Provide 3 concrete, detailed examples that demonstrate this concept in action.
+
+Context: {context_from_parent}
+
+Each example should:
+- Be specific and realistic
+- Show the concept applied step-by-step
+- Vary in context (different domains or scales)
+
+Format as JSON:
+{{
+    "explanation": "These examples show the concept in practice...",
+    "examples": ["Detailed example 1 with steps...", "Detailed example 2...", "Detailed example 3..."],
+    "analogy": null,
+    "connection_to_main": "How these examples relate to {parent_topic}..."
+}}""",
+
+            "deeper": f"""Provide a more technical, rigorous explanation with mathematical formalism if applicable.
+
+Context: {context_from_parent}
+
+Include:
+- Precise definitions and terminology
+- Mathematical formulations (LaTeX: $...$ inline, $$...$$ display)
+- Edge cases and limitations
+- Connections to related advanced concepts
+
+Format as JSON:
+{{
+    "explanation": "Technical deep-dive with formulas and precision...",
+    "examples": ["Technical example with equations", "Edge case example"],
+    "analogy": null,
+    "connection_to_main": "Advanced connections to {parent_topic}..."
+}}""",
+
+            "significance": f"""Explain WHY this concept matters - its importance, applications, and real-world impact.
+
+Context: {context_from_parent}
+
+Cover:
+- Why should someone care about this?
+- Real-world applications and use cases
+- Historical importance or breakthroughs
+- What problems does it solve?
+
+Format as JSON:
+{{
+    "explanation": "Why this matters and its impact...",
+    "examples": ["Real application 1", "Important use case 2"],
+    "analogy": null,
+    "connection_to_main": "The significance within {parent_topic}..."
+}}"""
         }
 
-        return f"""You are providing a focused, detailed explanation of a specific concept within a larger topic.
-
-Parent Topic: {parent_topic}
-Specific Focus: {subtopic_focus}
-Complexity Level: {complexity_level}
+        # Default prompt for custom focus or concept-specific drill-down
+        default_prompt = f"""Provide a focused explanation of: {subtopic_focus}
 
 Context from parent explanation:
 {context_from_parent}
 
-Provide a focused drill-down explanation with:
-1. A clear, direct explanation of this specific concept (2-3 paragraphs)
-2. 1-2 concrete examples that illustrate the concept
-3. A simple analogy if it helps understanding
-4. How it connects back to the main topic
+Complexity Level: {complexity_level}
 
-Keep it concise but thorough. This should feel like a helpful elaboration, not a full new lesson.
+Provide:
+1. Clear explanation (2-3 paragraphs)
+2. 1-2 concrete examples
+3. A simple analogy if helpful
+4. Connection back to {parent_topic}
 
 Format as JSON:
 {{
-    "explanation": "Direct, clear explanation of the concept...",
-    "examples": ["Concrete example 1", "Concrete example 2"],
-    "analogy": "Simple analogy if helpful (or null if not needed)",
-    "connection_to_main": "How this relates back to {parent_topic}..."
-}}
+    "explanation": "Direct explanation...",
+    "examples": ["Example 1", "Example 2"],
+    "analogy": "Analogy or null",
+    "connection_to_main": "Connection to {parent_topic}..."
+}}"""
 
-{complexity_guidance.get(complexity_level, complexity_guidance["intermediate"])}"""
+        # Get the appropriate prompt
+        prompt = exploration_prompts.get(subtopic_focus, default_prompt)
+
+        return f"""You are providing a focused exploration of a concept.
+
+Parent Topic: {parent_topic}
+
+{prompt}
+
+Return ONLY valid JSON, no markdown."""
 
     def _build_organization_prompt(
         self,

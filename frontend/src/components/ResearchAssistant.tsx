@@ -560,7 +560,7 @@ export default function ResearchAssistant({ className }: ResearchAssistantProps)
     try {
       const result = await apiClient.explainSubtopic({
         parent_topic: explanationResult?.topic || '',
-        subtopic_focus: prompt.prompt_text,
+        subtopic_focus: prompt.focus, // Use focus type for exploration types
         context_from_parent: stepContent,
         complexity_level: complexityLevel,
       }, selectedModel);
@@ -579,6 +579,15 @@ export default function ResearchAssistant({ className }: ResearchAssistantProps)
       setLoadingSubtopic(null);
     }
   };
+
+  // Predefined exploration types for each step
+  const explorationTypes = [
+    { focus: 'simpler', label: 'Explain Simpler', icon: '💡' },
+    { focus: 'analogy', label: 'Give Analogy', icon: '🔗' },
+    { focus: 'example', label: 'Show Example', icon: '📝' },
+    { focus: 'deeper', label: 'Go Deeper', icon: '🔬' },
+    { focus: 'significance', label: 'Why It Matters', icon: '⭐' },
+  ];
 
   // Process content to render LaTeX equations properly
   const renderMathMarkdown = (content: string) => {
@@ -1047,48 +1056,68 @@ export default function ResearchAssistant({ className }: ResearchAssistantProps)
                         })()}
                       </div>
 
-                      {/* Drill-Down Buttons */}
-                      {step.follow_up_prompts && step.follow_up_prompts.length > 0 && (
-                        <div className="mt-3 pt-3 border-t border-[var(--border-color)]">
-                          <p className="text-xs text-[var(--text-tertiary)] mb-2">Learn more:</p>
-                          <div className="flex flex-wrap gap-2">
-                            {step.follow_up_prompts.map((prompt, promptIdx) => {
-                              const key = `${idx}-${prompt.focus}`;
-                              const isLoading = loadingSubtopic === key;
-                              return (
-                                <button
-                                  key={promptIdx}
-                                  onClick={() => handleDrillDown(idx, prompt, step.content)}
-                                  disabled={isLoading}
-                                  className="text-xs px-3 py-1.5 bg-[var(--bg-secondary)] hover:bg-primary-100 dark:hover:bg-primary-900/30 border border-[var(--border-color)] rounded-full transition-colors flex items-center gap-1 disabled:opacity-50"
-                                >
-                                  {isLoading ? (
-                                    <Loader2 size={12} className="animate-spin" />
-                                  ) : (
-                                    <ChevronDown size={12} />
-                                  )}
-                                  {prompt.prompt_text}
-                                </button>
-                              );
-                            })}
-                          </div>
+                      {/* Exploration Buttons - 5 ways to explore each step */}
+                      <div className="mt-3 pt-3 border-t border-[var(--border-color)]">
+                        <p className="text-xs text-[var(--text-tertiary)] mb-2">Explore this concept:</p>
+                        <div className="flex flex-wrap gap-2">
+                          {explorationTypes.map((expType) => {
+                            const key = `${idx}-${expType.focus}`;
+                            const isLoading = loadingSubtopic === key;
+                            const isLoaded = !!subExplanations[key];
+                            return (
+                              <button
+                                key={expType.focus}
+                                onClick={() => handleDrillDown(idx, { prompt_text: expType.label, focus: expType.focus }, step.content)}
+                                disabled={isLoading}
+                                className={`text-xs px-3 py-1.5 border rounded-full transition-colors flex items-center gap-1.5 disabled:opacity-50 ${
+                                  isLoaded
+                                    ? 'bg-primary-100 dark:bg-primary-900/30 border-primary-300 dark:border-primary-700'
+                                    : 'bg-[var(--bg-secondary)] hover:bg-primary-50 dark:hover:bg-primary-900/20 border-[var(--border-color)]'
+                                }`}
+                              >
+                                {isLoading ? (
+                                  <Loader2 size={12} className="animate-spin" />
+                                ) : (
+                                  <span>{expType.icon}</span>
+                                )}
+                                {expType.label}
+                              </button>
+                            );
+                          })}
                         </div>
-                      )}
+                      </div>
 
                       {/* Sub-Explanation Display */}
-                      {expandedSteps[idx] && step.follow_up_prompts && (
+                      {expandedSteps[idx] && (
                         <div className="mt-3 space-y-3">
-                          {step.follow_up_prompts.map((prompt) => {
-                            const key = `${idx}-${prompt.focus}`;
+                          {explorationTypes.map((expType) => {
+                            const key = `${idx}-${expType.focus}`;
                             const subExp = subExplanations[key];
                             if (!subExp) return null;
 
                             return (
                               <div key={key} className="p-3 bg-[var(--bg-secondary)] rounded-lg border-l-4 border-primary-500">
                                 <div className="flex items-center justify-between mb-2">
-                                  <p className="text-sm font-medium text-primary-600">{prompt.prompt_text}</p>
+                                  <p className="text-sm font-medium text-primary-600">
+                                    <span className="mr-1">{expType.icon}</span>
+                                    {expType.label}
+                                  </p>
                                   <button
-                                    onClick={() => setExpandedSteps(prev => ({ ...prev, [idx]: false }))}
+                                    onClick={() => {
+                                      // Clear this specific sub-explanation
+                                      setSubExplanations(prev => {
+                                        const newState = { ...prev };
+                                        delete newState[key];
+                                        return newState;
+                                      });
+                                      // Check if any sub-explanations remain for this step
+                                      const remainingKeys = Object.keys(subExplanations).filter(
+                                        k => k.startsWith(`${idx}-`) && k !== key
+                                      );
+                                      if (remainingKeys.length === 0) {
+                                        setExpandedSteps(prev => ({ ...prev, [idx]: false }));
+                                      }
+                                    }}
                                     className="text-[var(--text-tertiary)] hover:text-[var(--text-primary)]"
                                   >
                                     <ChevronUp size={16} />
@@ -1097,12 +1126,12 @@ export default function ResearchAssistant({ className }: ResearchAssistantProps)
                                 <div className="text-sm text-[var(--text-secondary)] space-y-2">
                                   {renderMathMarkdown(subExp.explanation)}
 
-                                  {subExp.examples.length > 0 && (
+                                  {subExp.examples && subExp.examples.length > 0 && (
                                     <div className="mt-2">
                                       <p className="font-medium text-xs mb-1">Examples:</p>
                                       <ul className="list-disc list-inside space-y-1">
                                         {subExp.examples.map((ex, i) => (
-                                          <li key={i}>{ex}</li>
+                                          <li key={i}>{renderMathMarkdown(ex)}</li>
                                         ))}
                                       </ul>
                                     </div>
@@ -1111,6 +1140,12 @@ export default function ResearchAssistant({ className }: ResearchAssistantProps)
                                   {subExp.analogy && (
                                     <div className="mt-2 p-2 bg-yellow-50 dark:bg-yellow-900/20 rounded text-xs">
                                       <span className="font-medium">Analogy: </span>{subExp.analogy}
+                                    </div>
+                                  )}
+
+                                  {subExp.connection_to_main && (
+                                    <div className="mt-2 text-xs text-[var(--text-tertiary)] italic">
+                                      {subExp.connection_to_main}
                                     </div>
                                   )}
                                 </div>
