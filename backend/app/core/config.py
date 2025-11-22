@@ -61,7 +61,7 @@ class Settings(BaseSettings):
     deepseek_model: str = "deepseek-chat"
     mistral_model: str = "mistral-large-latest"
     openai_model: str = Field(default="gpt-4-turbo", env="OPENAI_MODEL")
-    gemini_model: str = Field(default="gemini-1.5-flash", env="GEMINI_MODEL")
+    gemini_model: str = Field(default="gemini-2.5-flash", env="GEMINI_MODEL")
     glm_model: str = Field(default="glm-4-flash", env="GLM_MODEL")
     max_tokens: int = 8192
     temperature: float = 0.7
