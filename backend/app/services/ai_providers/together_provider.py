@@ -20,7 +20,7 @@ from app.models.schemas import (
 class TogetherProvider(BaseAIProvider):
     """Together AI provider implementation using OpenAI-compatible API."""
 
-    def __init__(self, api_key: str, model_name: str, max_tokens: int = 4096, temperature: float = 0.7):
+    def __init__(self, api_key: str, model_name: str, max_tokens: int = 8192, temperature: float = 0.7):
         super().__init__(api_key, model_name, max_tokens, temperature)
         self.client = OpenAI(
             api_key=api_key,
