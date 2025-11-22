@@ -50,6 +50,18 @@ class ClaudeProvider(BaseAIProvider):
         content = await self.generate_completion(prompt)
         return self._parse_explanation_response(content, request.topic)
 
+    async def explain_subtopic(
+        self,
+        parent_topic: str,
+        subtopic_focus: str,
+        context_from_parent: str,
+        complexity_level: str = "intermediate"
+    ) -> Dict[str, Any]:
+        """Generate a focused explanation for a subtopic/drill-down."""
+        prompt = self._build_subtopic_prompt(parent_topic, subtopic_focus, context_from_parent, complexity_level)
+        content = await self.generate_completion(prompt)
+        return self._parse_subtopic_response(content)
+
     async def organize_notes(
         self,
         notes: List[Note],
@@ -88,7 +100,7 @@ class ClaudeProvider(BaseAIProvider):
             )
 
     def _parse_explanation_response(self, content: str, topic: str) -> ExplainTopicResponse:
-        """Parse Claude's explanation response."""
+        """Parse Claude's explanation response with enhanced fields."""
         try:
             json_start = content.find('{')
             json_end = content.rfind('}') + 1
@@ -102,6 +114,8 @@ class ClaudeProvider(BaseAIProvider):
                 topic=topic,
                 introduction=data.get("introduction", ""),
                 steps=data.get("steps", []),
+                key_takeaways=data.get("key_takeaways", []),
+                common_misconceptions=data.get("common_misconceptions", []),
                 analogies=data.get("analogies", []),
                 references=data.get("references", []),
                 latex_equations=data.get("latex_equations", [])
@@ -111,9 +125,40 @@ class ClaudeProvider(BaseAIProvider):
                 topic=topic,
                 introduction=content[:500],
                 steps=[{"title": "Raw Response", "content": content}],
+                key_takeaways=[],
+                common_misconceptions=[],
                 analogies=[],
                 references=[]
             )
+
+    def _parse_subtopic_response(self, content: str) -> Dict[str, Any]:
+        """Parse Claude's subtopic drill-down response."""
+        try:
+            json_start = content.find('{')
+            json_end = content.rfind('}') + 1
+            if json_start != -1 and json_end > json_start:
+                json_str = content[json_start:json_end]
+                data = json.loads(json_str)
+                return {
+                    "explanation": data.get("explanation", ""),
+                    "examples": data.get("examples", []),
+                    "analogy": data.get("analogy"),
+                    "connection_to_main": data.get("connection_to_main", "")
+                }
+            else:
+                return {
+                    "explanation": content,
+                    "examples": [],
+                    "analogy": None,
+                    "connection_to_main": ""
+                }
+        except Exception:
+            return {
+                "explanation": content[:1000],
+                "examples": [],
+                "analogy": None,
+                "connection_to_main": ""
+            }
 
     def _parse_organization_response(self, content: str, notes: List[Note]) -> MemoryPalaceStructure:
         """Parse Claude's organization response."""

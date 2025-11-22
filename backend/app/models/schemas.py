@@ -57,13 +57,38 @@ class ExplainTopicRequest(BaseModel):
 
 
 class ExplainTopicResponse(BaseModel):
-    """Topic explanation response."""
+    """Topic explanation response with enhanced interactive features."""
     topic: str
     introduction: str
-    steps: List[Dict[str, str]]  # Each step has title and content
+    steps: List[Dict[str, Any]]  # Each step has title, content, and follow_up_prompts
+    key_takeaways: List[str] = Field(default_factory=list, description="Key points to remember")
+    common_misconceptions: List[Dict[str, str]] = Field(
+        default_factory=list,
+        description="Common misconceptions with clarifications"
+    )
     analogies: List[str]
     references: List[Dict[str, str]]
     latex_equations: List[str] = Field(default_factory=list)
+    generated_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class ExplainSubtopicRequest(BaseModel):
+    """Request for drilling down into a subtopic."""
+    parent_topic: str = Field(..., description="The main topic being explained")
+    subtopic_focus: str = Field(..., description="The specific concept to drill into")
+    context_from_parent: str = Field(..., description="Context from the parent explanation")
+    complexity_level: str = Field(
+        default="intermediate",
+        description="Complexity level: beginner, intermediate, advanced"
+    )
+
+
+class ExplainSubtopicResponse(BaseModel):
+    """Response for subtopic drill-down explanation."""
+    explanation: str
+    examples: List[str] = Field(default_factory=list)
+    analogy: Optional[str] = None
+    connection_to_main: str
     generated_at: datetime = Field(default_factory=datetime.utcnow)
 
 

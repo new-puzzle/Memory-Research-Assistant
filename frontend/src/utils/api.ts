@@ -99,6 +99,16 @@ class ApiClient {
     return this.post(url, data);
   }
 
+  async explainSubtopic(data: {
+    parent_topic: string;
+    subtopic_focus: string;
+    context_from_parent: string;
+    complexity_level?: 'beginner' | 'intermediate' | 'advanced';
+  }, model?: string) {
+    const url = model ? `/research/explain-subtopic?model=${model}` : '/research/explain-subtopic';
+    return this.post(url, data);
+  }
+
   async organizeNotes(data: {
     notes: Array<{
       id: string;

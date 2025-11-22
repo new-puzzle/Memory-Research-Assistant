@@ -2,7 +2,7 @@
  * Research Assistant component for AI-powered research and explanations
  */
 import React, { useState } from 'react';
-import { Search, BookOpen, Loader2, Download, Copy, Check, History, X, Plus } from 'lucide-react';
+import { Search, BookOpen, Loader2, Download, Copy, Check, History, X, Plus, ChevronDown, ChevronUp, Lightbulb, AlertTriangle, Target } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { InlineMath, BlockMath } from 'react-katex';
 import 'katex/dist/katex.min.css';
@@ -28,13 +28,38 @@ interface ResearchResult {
   further_reading: Array<{ title: string; author?: string; url: string }>;
 }
 
+interface FollowUpPrompt {
+  prompt_text: string;
+  focus: string;
+}
+
+interface ExplanationStep {
+  title: string;
+  content: string;
+  follow_up_prompts?: FollowUpPrompt[];
+}
+
+interface Misconception {
+  misconception: string;
+  clarification: string;
+}
+
 interface ExplanationResult {
   topic: string;
   introduction: string;
-  steps: Array<{ title: string; content: string }>;
+  steps: ExplanationStep[];
+  key_takeaways?: string[];
+  common_misconceptions?: Misconception[];
   analogies: string[];
   references: Array<{ title: string; url: string }>;
   latex_equations?: string[];
+}
+
+interface SubExplanation {
+  explanation: string;
+  examples: string[];
+  analogy?: string | null;
+  connection_to_main: string;
 }
 
 export default function ResearchAssistant({ className }: ResearchAssistantProps) {
@@ -62,6 +87,11 @@ export default function ResearchAssistant({ className }: ResearchAssistantProps)
   const [prerequisite, setPrerequisite] = useState('');
   const [relatedField, setRelatedField] = useState('');
   const [complexityLevel, setComplexityLevel] = useState<'beginner' | 'intermediate' | 'advanced'>('intermediate');
+
+  // Sub-explanation state for drill-downs
+  const [subExplanations, setSubExplanations] = useState<Record<string, SubExplanation>>({});
+  const [loadingSubtopic, setLoadingSubtopic] = useState<string | null>(null);
+  const [expandedSteps, setExpandedSteps] = useState<Record<number, boolean>>({});
 
   const handleFetchResearch = async () => {
     if (!researchTopic.trim()) return;
@@ -506,6 +536,47 @@ export default function ResearchAssistant({ className }: ResearchAssistantProps)
       setExplainTopic('');
       setPrerequisite('');
       setRelatedField('');
+      setSubExplanations({});
+      setExpandedSteps({});
+    }
+  };
+
+  const handleDrillDown = async (stepIndex: number, prompt: FollowUpPrompt, stepContent: string) => {
+    const key = `${stepIndex}-${prompt.focus}`;
+
+    // If already loaded, just toggle visibility
+    if (subExplanations[key]) {
+      setExpandedSteps(prev => ({
+        ...prev,
+        [stepIndex]: !prev[stepIndex]
+      }));
+      return;
+    }
+
+    // Load new sub-explanation
+    setLoadingSubtopic(key);
+    setError(null);
+
+    try {
+      const result = await apiClient.explainSubtopic({
+        parent_topic: explanationResult?.topic || '',
+        subtopic_focus: prompt.prompt_text,
+        context_from_parent: stepContent,
+        complexity_level: complexityLevel,
+      }, selectedModel);
+
+      setSubExplanations(prev => ({
+        ...prev,
+        [key]: result as SubExplanation
+      }));
+      setExpandedSteps(prev => ({
+        ...prev,
+        [stepIndex]: true
+      }));
+    } catch (err: any) {
+      setError(err.response?.data?.detail || 'Failed to load detailed explanation.');
+    } finally {
+      setLoadingSubtopic(null);
     }
   };
 
@@ -945,24 +1016,142 @@ export default function ResearchAssistant({ className }: ResearchAssistantProps)
                   </div>
                 </div>
 
+                {/* Key Takeaways */}
+                {explanationResult.key_takeaways && explanationResult.key_takeaways.length > 0 && (
+                  <div className="p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+                    <h4 className="font-semibold mb-3 flex items-center gap-2">
+                      <Target size={18} className="text-blue-600" />
+                      Key Takeaways
+                    </h4>
+                    <ul className="space-y-2">
+                      {explanationResult.key_takeaways.map((takeaway, idx) => (
+                        <li key={idx} className="flex items-start gap-2 text-[var(--text-secondary)]">
+                          <span className="text-blue-600 mt-1">•</span>
+                          <span>{takeaway}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {/* Step-by-Step Explanation with Drill-Down */}
                 <div className="space-y-4">
                   <h4 className="font-semibold">Step-by-Step Explanation</h4>
                   {explanationResult.steps.map((step, idx) => (
                     <div key={idx} className="p-4 bg-[var(--bg-tertiary)] rounded-lg">
                       <h5 className="font-semibold text-primary-600 mb-2">{step.title}</h5>
-                      <div className="markdown-content">
+                      <div className="markdown-content mb-3">
                         {(() => {
                           console.log('[LaTeX Debug] Rendering step content:', step.title, step.content);
                           return renderMathMarkdown(step.content);
                         })()}
                       </div>
+
+                      {/* Drill-Down Buttons */}
+                      {step.follow_up_prompts && step.follow_up_prompts.length > 0 && (
+                        <div className="mt-3 pt-3 border-t border-[var(--border-color)]">
+                          <p className="text-xs text-[var(--text-tertiary)] mb-2">Learn more:</p>
+                          <div className="flex flex-wrap gap-2">
+                            {step.follow_up_prompts.map((prompt, promptIdx) => {
+                              const key = `${idx}-${prompt.focus}`;
+                              const isLoading = loadingSubtopic === key;
+                              return (
+                                <button
+                                  key={promptIdx}
+                                  onClick={() => handleDrillDown(idx, prompt, step.content)}
+                                  disabled={isLoading}
+                                  className="text-xs px-3 py-1.5 bg-[var(--bg-secondary)] hover:bg-primary-100 dark:hover:bg-primary-900/30 border border-[var(--border-color)] rounded-full transition-colors flex items-center gap-1 disabled:opacity-50"
+                                >
+                                  {isLoading ? (
+                                    <Loader2 size={12} className="animate-spin" />
+                                  ) : (
+                                    <ChevronDown size={12} />
+                                  )}
+                                  {prompt.prompt_text}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Sub-Explanation Display */}
+                      {expandedSteps[idx] && step.follow_up_prompts && (
+                        <div className="mt-3 space-y-3">
+                          {step.follow_up_prompts.map((prompt) => {
+                            const key = `${idx}-${prompt.focus}`;
+                            const subExp = subExplanations[key];
+                            if (!subExp) return null;
+
+                            return (
+                              <div key={key} className="p-3 bg-[var(--bg-secondary)] rounded-lg border-l-4 border-primary-500">
+                                <div className="flex items-center justify-between mb-2">
+                                  <p className="text-sm font-medium text-primary-600">{prompt.prompt_text}</p>
+                                  <button
+                                    onClick={() => setExpandedSteps(prev => ({ ...prev, [idx]: false }))}
+                                    className="text-[var(--text-tertiary)] hover:text-[var(--text-primary)]"
+                                  >
+                                    <ChevronUp size={16} />
+                                  </button>
+                                </div>
+                                <div className="text-sm text-[var(--text-secondary)] space-y-2">
+                                  {renderMathMarkdown(subExp.explanation)}
+
+                                  {subExp.examples.length > 0 && (
+                                    <div className="mt-2">
+                                      <p className="font-medium text-xs mb-1">Examples:</p>
+                                      <ul className="list-disc list-inside space-y-1">
+                                        {subExp.examples.map((ex, i) => (
+                                          <li key={i}>{ex}</li>
+                                        ))}
+                                      </ul>
+                                    </div>
+                                  )}
+
+                                  {subExp.analogy && (
+                                    <div className="mt-2 p-2 bg-yellow-50 dark:bg-yellow-900/20 rounded text-xs">
+                                      <span className="font-medium">Analogy: </span>{subExp.analogy}
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
 
+                {/* Common Misconceptions */}
+                {explanationResult.common_misconceptions && explanationResult.common_misconceptions.length > 0 && (
+                  <div className="p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg">
+                    <h4 className="font-semibold mb-3 flex items-center gap-2">
+                      <AlertTriangle size={18} className="text-amber-600" />
+                      Common Misconceptions
+                    </h4>
+                    <div className="space-y-3">
+                      {explanationResult.common_misconceptions.map((item, idx) => (
+                        <div key={idx} className="text-sm">
+                          <p className="text-amber-700 dark:text-amber-400 font-medium">
+                            ✗ {item.misconception}
+                          </p>
+                          <p className="text-[var(--text-secondary)] mt-1 ml-4">
+                            ✓ {item.clarification}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Analogies */}
                 {explanationResult.analogies.length > 0 && (
                   <div>
-                    <h4 className="font-semibold mb-2">Analogies</h4>
+                    <h4 className="font-semibold mb-2 flex items-center gap-2">
+                      <Lightbulb size={18} className="text-yellow-500" />
+                      Analogies
+                    </h4>
                     <div className="space-y-2">
                       {explanationResult.analogies.map((analogy, idx) => (
                         <div key={idx} className="p-3 bg-[var(--bg-tertiary)] rounded-lg">
@@ -973,6 +1162,7 @@ export default function ResearchAssistant({ className }: ResearchAssistantProps)
                   </div>
                 )}
 
+                {/* References */}
                 {explanationResult.references.length > 0 && (
                   <div>
                     <h4 className="font-semibold mb-2">References</h4>

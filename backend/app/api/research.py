@@ -9,9 +9,12 @@ from app.models.schemas import (
     ResearchResponse,
     ExplainTopicRequest,
     ExplainTopicResponse,
+    ExplainSubtopicRequest,
+    ExplainSubtopicResponse,
     OrganizeNotesRequest,
     OrganizeNotesResponse,
 )
+from app.core.config import settings
 from app.services import arxiv_service
 from app.services.ai_service_factory import get_ai_provider, AIServiceFactory
 from app.core.security import get_current_user
@@ -118,6 +121,48 @@ async def explain_topic(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to explain topic: {error_detail}"
+        )
+
+
+@router.post("/explain-subtopic", response_model=ExplainSubtopicResponse)
+async def explain_subtopic(
+    request: ExplainSubtopicRequest,
+    model: Optional[str] = Query(None, description="AI model to use (claude, together, deepseek, mistral)"),
+    current_user: Dict = Depends(get_current_user)
+):
+    """
+    Get a focused drill-down explanation of a specific subtopic.
+
+    Used for interactive learning where users can click to explore
+    specific concepts in more detail.
+    """
+    try:
+        # Get AI provider
+        ai_provider = get_ai_provider(model)
+
+        # Get subtopic explanation
+        result = await ai_provider.explain_subtopic(
+            parent_topic=request.parent_topic,
+            subtopic_focus=request.subtopic_focus,
+            context_from_parent=request.context_from_parent,
+            complexity_level=request.complexity_level
+        )
+
+        return ExplainSubtopicResponse(
+            explanation=result.get("explanation", ""),
+            examples=result.get("examples", []),
+            analogy=result.get("analogy"),
+            connection_to_main=result.get("connection_to_main", "")
+        )
+
+    except Exception as e:
+        import traceback
+        error_detail = str(e)
+        if settings.debug:
+            error_detail += f"\n\nTraceback:\n{traceback.format_exc()}"
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to explain subtopic: {error_detail}"
         )
 
 
