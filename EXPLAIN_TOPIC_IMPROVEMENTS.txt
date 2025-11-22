@@ -1,0 +1,66 @@
+EXPLAIN TOPIC FEATURE - SUGGESTED IMPROVEMENTS
+==============================================
+
+Current Implementation Complete:
+- Key Takeaways section
+- Common Misconceptions section
+- AI-generated follow-up prompts per step
+- Drill-down functionality with sub-explanations
+- Topic-aware formatting (no LaTeX for non-technical topics)
+- Truly distinct complexity levels (beginner/intermediate/advanced)
+
+Potential Future Enhancements:
+------------------------------
+
+1. SPACED REPETITION INTEGRATION
+   - Generate flashcards from key takeaways
+   - Track mastery over time
+   - Quiz mode for self-assessment
+
+2. VISUAL LEARNING
+   - Auto-generate diagrams from explanations (Mermaid/D3.js)
+   - Interactive visualizations for mathematical concepts
+   - Step-by-step animations for processes
+
+3. PERSONALIZATION
+   - Remember user's background/expertise level
+   - Adapt explanations based on learning history
+   - Suggest related topics based on interests
+
+4. COLLABORATIVE FEATURES
+   - Share explanations with others
+   - Add personal annotations/notes
+   - Discussion threads on concepts
+
+5. EXPORT ENHANCEMENTS
+   - Export to Anki deck format
+   - Export to interactive HTML
+   - Export to presentation slides
+
+6. AUDIO/ACCESSIBILITY
+   - Full audio narration of explanations
+   - Adjustable reading speed
+   - Screen reader optimization
+
+7. PROGRESS TRACKING
+   - Track which topics have been studied
+   - Show concept dependencies
+   - Suggest learning paths
+
+8. REAL-TIME COLLABORATION
+   - Live Q&A during explanations
+   - Tutor mode for guided learning
+   - Study groups
+
+Priority Recommendations:
+-------------------------
+HIGH: Spaced repetition (flashcards from takeaways)
+HIGH: Visual diagrams for complex topics
+MEDIUM: Progress tracking and learning paths
+MEDIUM: Enhanced export formats
+
+Notes:
+------
+- Current drill-down is synchronous; consider streaming for long responses
+- Sub-explanations could cache results to avoid re-fetching
+- Consider adding "simplify this" button for any paragraph
