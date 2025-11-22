@@ -1,13 +1,46 @@
-EXPLAIN TOPIC FEATURE - SUGGESTED IMPROVEMENTS
+EXPLAIN TOPIC FEATURE - IMPROVEMENTS & ROADMAP
 ==============================================
 
-Current Implementation Complete:
-- Key Takeaways section
-- Common Misconceptions section
-- AI-generated follow-up prompts per step
+COMPLETED IMPLEMENTATIONS (This Session):
+-----------------------------------------
+
+1. BIDIRECTIONAL EXPLORATION (5 Ways to Learn Each Step)
+   - Explain Simpler: ELI5 explanation with everyday language
+   - Give Analogy: 2-3 vivid, memorable comparisons
+   - Show Example: Concrete step-by-step demonstrations
+   - Go Deeper: Technical detail, formulas, edge cases
+   - Why It Matters: Applications, impact, significance
+
+   Users can click multiple buttons per step, all results display together.
+   Progressive disclosure lets users control their learning pace.
+
+2. ARCHITECTURE IMPROVEMENTS
+   - Moved explain_subtopic to base class (no code duplication across providers)
+   - All AI providers now automatically inherit the method
+   - Adding new providers only requires implementing generate_completion()
+
+3. TOKEN OVERFLOW FIX
+   - Simplified prompts to stay within 4096 token limit
+   - Each step limited to 80 words max
+   - Explicit "raw JSON only" instruction to prevent markdown wrapping
+
+4. ENHANCED PROMPT STRUCTURE
+   - Key Takeaways section (3 essential points)
+   - Common Misconceptions section (2 items with clarifications)
+   - Topic-aware formatting (no LaTeX for non-technical topics)
+   - Truly distinct complexity levels (beginner/intermediate/advanced)
+
+5. EXPLORATION TYPE PROMPTS
+   - Each of the 5 exploration types has a specialized prompt
+   - Prompts tailored for the specific learning goal
+   - Consistent JSON response format across all types
+
+Previously Implemented:
+-----------------------
 - Drill-down functionality with sub-explanations
-- Topic-aware formatting (no LaTeX for non-technical topics)
-- Truly distinct complexity levels (beginner/intermediate/advanced)
+- LaTeX equation rendering with KaTeX
+- PDF export functionality
+- Model selection (Claude, DeepSeek, Mistral, Together)
 
 Potential Future Enhancements:
 ------------------------------
@@ -47,20 +80,21 @@ Potential Future Enhancements:
    - Show concept dependencies
    - Suggest learning paths
 
-8. REAL-TIME COLLABORATION
-   - Live Q&A during explanations
-   - Tutor mode for guided learning
-   - Study groups
+8. STREAMING RESPONSES
+   - Stream long explanations incrementally
+   - Show progress while generating
+   - Better UX for complex topics
 
 Priority Recommendations:
 -------------------------
 HIGH: Spaced repetition (flashcards from takeaways)
 HIGH: Visual diagrams for complex topics
 MEDIUM: Progress tracking and learning paths
-MEDIUM: Enhanced export formats
+MEDIUM: Streaming for long responses
 
-Notes:
-------
-- Current drill-down is synchronous; consider streaming for long responses
-- Sub-explanations could cache results to avoid re-fetching
-- Consider adding "simplify this" button for any paragraph
+Technical Notes:
+----------------
+- Max tokens: 4096 (can increase to 8192 for complex topics if needed)
+- Sub-explanations cache results to avoid re-fetching
+- Exploration buttons highlight when loaded
+- Click up arrow to dismiss individual exploration results
