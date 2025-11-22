@@ -122,7 +122,7 @@ Focus on precision and completeness over accessibility."""
         latex_instruction = """   - LaTeX equations where appropriate (wrapped in $...$ for inline, $$...$$ for display)""" if is_technical else ""
         latex_field = '"latex_equations": ["equation1", "equation2", ...]' if is_technical else ''
 
-        return f"""You are an expert educator. Create a clear, structured explanation.
+        return f"""You are an expert educator. Create a structured, interactive explanation.
 
 Topic: {request.topic}{prereq_part}{field_part}
 
@@ -131,20 +131,30 @@ Complexity Level: {request.complexity_level}
 
 Provide:
 1. Introduction: 2-3 sentences
-2. Steps: 3-4 steps with title and concise explanation (150 words max each){latex_instruction}
-3. Key Takeaways: 3 essential points
-4. Analogies: 2 comparisons
-5. References: 2 resources
+2. Steps: 3-4 steps, each with title, explanation (80 words max){latex_instruction}, and 2 follow_up_prompts
+3. Key Takeaways: 3 points
+4. Common Misconceptions: 2 items
+5. Analogies: 2 comparisons
+6. References: 2 resources
 
-IMPORTANT: Return ONLY valid JSON, no markdown formatting or code blocks.
+CRITICAL: Return ONLY raw JSON. No markdown. Keep each step under 80 words.
 
 {{
     "introduction": "...",
     "steps": [
-        {{"title": "Step Title", "content": "Concise explanation..."}},
-        ...
+        {{
+            "title": "Step Title",
+            "content": "Concise explanation (80 words max)...",
+            "follow_up_prompts": [
+                {{"prompt_text": "Question", "focus": "concept"}},
+                {{"prompt_text": "Question", "focus": "concept"}}
+            ]
+        }}
     ],
     "key_takeaways": ["Point 1", "Point 2", "Point 3"],
+    "common_misconceptions": [
+        {{"misconception": "Wrong belief", "clarification": "Correct understanding"}}
+    ],
     "analogies": ["analogy 1", "analogy 2"],
     "references": [{{"title": "...", "url": "..."}}]{', ' + latex_field if latex_field else ''}
 }}"""
