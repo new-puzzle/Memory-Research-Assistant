@@ -14,6 +14,9 @@ class Settings(BaseSettings):
     together_api_key: str = Field(default="", env="TOGETHER_API_KEY")
     deepseek_api_key: str = Field(default="", env="DEEPSEEK_API_KEY")
     mistral_api_key: str = Field(default="", env="MISTRAL_API_KEY")
+    openai_api_key: str = Field(default="", env="OPENAI_API_KEY")
+    gemini_api_key: str = Field(default="", env="GEMINI_API_KEY")
+    glm_api_key: str = Field(default="", env="GLM_API_KEY")
 
     # Google Cloud
     google_client_id: str = Field(..., env="GOOGLE_CLIENT_ID")
@@ -57,7 +60,10 @@ class Settings(BaseSettings):
     together_model: str = "meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo"
     deepseek_model: str = "deepseek-chat"
     mistral_model: str = "mistral-large-latest"
-    max_tokens: int = 4096
+    openai_model: str = "gpt-4-turbo-preview"
+    gemini_model: str = "gemini-pro"
+    glm_model: str = "glm-4"
+    max_tokens: int = 8192
     temperature: float = 0.7
 
     # File Upload Settings

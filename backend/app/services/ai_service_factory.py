@@ -8,6 +8,9 @@ from app.services.ai_providers import (
     TogetherProvider,
     DeepSeekProvider,
     MistralProvider,
+    OpenAIProvider,
+    GeminiProvider,
+    GLMProvider,
 )
 
 
@@ -20,7 +23,7 @@ class AIServiceFactory:
         Create an AI provider based on the model type.
 
         Args:
-            model_type: The type of model to use ('claude', 'together', 'deepseek', 'mistral')
+            model_type: The type of model to use ('claude', 'together', 'deepseek', 'mistral', 'openai', 'gemini', 'glm')
                        If None, uses the default from settings.
 
         Returns:
@@ -74,10 +77,40 @@ class AIServiceFactory:
                 temperature=settings.temperature
             )
 
+        elif model_type == "openai":
+            if not settings.openai_api_key:
+                raise ValueError("OPENAI_API_KEY is required for OpenAI model")
+            return OpenAIProvider(
+                api_key=settings.openai_api_key,
+                model_name=settings.openai_model,
+                max_tokens=settings.max_tokens,
+                temperature=settings.temperature
+            )
+
+        elif model_type == "gemini":
+            if not settings.gemini_api_key:
+                raise ValueError("GEMINI_API_KEY is required for Gemini model")
+            return GeminiProvider(
+                api_key=settings.gemini_api_key,
+                model_name=settings.gemini_model,
+                max_tokens=settings.max_tokens,
+                temperature=settings.temperature
+            )
+
+        elif model_type == "glm":
+            if not settings.glm_api_key:
+                raise ValueError("GLM_API_KEY is required for GLM model")
+            return GLMProvider(
+                api_key=settings.glm_api_key,
+                model_name=settings.glm_model,
+                max_tokens=settings.max_tokens,
+                temperature=settings.temperature
+            )
+
         else:
             raise ValueError(
                 f"Unknown model type: {model_type}. "
-                f"Supported types: claude, together, deepseek, mistral"
+                f"Supported types: claude, together, deepseek, mistral, openai, gemini, glm"
             )
 
     @staticmethod
@@ -95,6 +128,20 @@ class AIServiceFactory:
                 "provider": "Anthropic",
                 "available": bool(settings.anthropic_api_key),
                 "description": "Most capable model for complex reasoning"
+            },
+            {
+                "id": "openai",
+                "name": "GPT-4 Turbo",
+                "provider": "OpenAI",
+                "available": bool(settings.openai_api_key),
+                "description": "Industry standard with strong general performance"
+            },
+            {
+                "id": "gemini",
+                "name": "Gemini Pro",
+                "provider": "Google",
+                "available": bool(settings.gemini_api_key),
+                "description": "Google's multimodal AI model"
             },
             {
                 "id": "together",
@@ -116,6 +163,13 @@ class AIServiceFactory:
                 "provider": "Mistral AI",
                 "available": bool(settings.mistral_api_key),
                 "description": "European alternative with multilingual support"
+            },
+            {
+                "id": "glm",
+                "name": "GLM-4",
+                "provider": "Zhipu AI",
+                "available": bool(settings.glm_api_key),
+                "description": "Chinese AI model with strong capabilities"
             },
         ]
         return models
