@@ -92,6 +92,11 @@ export default function ResearchAssistant({ className }: ResearchAssistantProps)
   const [subExplanations, setSubExplanations] = useState<Record<string, SubExplanation>>({});
   const [loadingSubtopic, setLoadingSubtopic] = useState<string | null>(null);
   const [expandedSteps, setExpandedSteps] = useState<Record<number, boolean>>({});
+  const [customQuestionInputs, setCustomQuestionInputs] = useState<Record<number, string>>({});
+  const [showCustomInput, setShowCustomInput] = useState<Record<number, boolean>>({});
+  const [globalFollowUp, setGlobalFollowUp] = useState('');
+  const [globalFollowUpResult, setGlobalFollowUpResult] = useState<SubExplanation | null>(null);
+  const [loadingGlobalFollowUp, setLoadingGlobalFollowUp] = useState(false);
 
   const handleFetchResearch = async () => {
     if (!researchTopic.trim()) return;
@@ -589,6 +594,69 @@ export default function ResearchAssistant({ className }: ResearchAssistantProps)
     { focus: 'significance', label: 'Why It Matters', icon: '⭐' },
   ];
 
+  // Handle custom question submission for a step
+  const handleCustomQuestion = async (stepIndex: number, stepContent: string) => {
+    const question = customQuestionInputs[stepIndex]?.trim();
+    if (!question) return;
+
+    const key = `${stepIndex}-custom-${question}`;
+    setLoadingSubtopic(key);
+    setError(null);
+
+    try {
+      const result = await apiClient.explainSubtopic({
+        parent_topic: explanationResult?.topic || '',
+        subtopic_focus: question,
+        context_from_parent: stepContent,
+        complexity_level: complexityLevel,
+      }, selectedModel);
+
+      setSubExplanations(prev => ({
+        ...prev,
+        [key]: result as SubExplanation
+      }));
+      setExpandedSteps(prev => ({
+        ...prev,
+        [stepIndex]: true
+      }));
+      setShowCustomInput(prev => ({ ...prev, [stepIndex]: false }));
+      setCustomQuestionInputs(prev => ({ ...prev, [stepIndex]: '' }));
+    } catch (err: any) {
+      setError(err.response?.data?.detail || 'Failed to get answer.');
+    } finally {
+      setLoadingSubtopic(null);
+    }
+  };
+
+  // Handle global follow-up question
+  const handleGlobalFollowUp = async () => {
+    if (!globalFollowUp.trim() || !explanationResult) return;
+
+    setLoadingGlobalFollowUp(true);
+    setError(null);
+
+    try {
+      // Build context from all steps
+      const fullContext = explanationResult.steps
+        .map((s, i) => `Step ${i + 1} - ${s.title}: ${s.content}`)
+        .join('\n\n');
+
+      const result = await apiClient.explainSubtopic({
+        parent_topic: explanationResult.topic,
+        subtopic_focus: globalFollowUp,
+        context_from_parent: fullContext,
+        complexity_level: complexityLevel,
+      }, selectedModel);
+
+      setGlobalFollowUpResult(result as SubExplanation);
+      setGlobalFollowUp('');
+    } catch (err: any) {
+      setError(err.response?.data?.detail || 'Failed to get answer.');
+    } finally {
+      setLoadingGlobalFollowUp(false);
+    }
+  };
+
   // Process content to render LaTeX equations properly
   const renderMathMarkdown = (content: string) => {
     if (!content) return null;
@@ -1056,7 +1124,7 @@ export default function ResearchAssistant({ className }: ResearchAssistantProps)
                         })()}
                       </div>
 
-                      {/* Exploration Buttons - 5 ways to explore each step */}
+                      {/* Exploration Buttons - 6 ways to explore each step */}
                       <div className="mt-3 pt-3 border-t border-[var(--border-color)]">
                         <p className="text-xs text-[var(--text-tertiary)] mb-2">Explore this concept:</p>
                         <div className="flex flex-wrap gap-2">
@@ -1084,12 +1152,50 @@ export default function ResearchAssistant({ className }: ResearchAssistantProps)
                               </button>
                             );
                           })}
+                          {/* Custom Question Button */}
+                          <button
+                            onClick={() => setShowCustomInput(prev => ({ ...prev, [idx]: !prev[idx] }))}
+                            className={`text-xs px-3 py-1.5 border rounded-full transition-colors flex items-center gap-1.5 ${
+                              showCustomInput[idx]
+                                ? 'bg-primary-100 dark:bg-primary-900/30 border-primary-300 dark:border-primary-700'
+                                : 'bg-[var(--bg-secondary)] hover:bg-primary-50 dark:hover:bg-primary-900/20 border-[var(--border-color)]'
+                            }`}
+                          >
+                            <span>❓</span>
+                            Ask Question
+                          </button>
                         </div>
+
+                        {/* Custom Question Input */}
+                        {showCustomInput[idx] && (
+                          <div className="mt-3 flex gap-2">
+                            <input
+                              type="text"
+                              value={customQuestionInputs[idx] || ''}
+                              onChange={(e) => setCustomQuestionInputs(prev => ({ ...prev, [idx]: e.target.value }))}
+                              placeholder="Type your question about this step..."
+                              className="input flex-1 text-sm"
+                              onKeyPress={(e) => e.key === 'Enter' && handleCustomQuestion(idx, step.content)}
+                            />
+                            <button
+                              onClick={() => handleCustomQuestion(idx, step.content)}
+                              disabled={!customQuestionInputs[idx]?.trim() || loadingSubtopic?.startsWith(`${idx}-custom`)}
+                              className="btn-primary text-sm px-4 disabled:opacity-50"
+                            >
+                              {loadingSubtopic?.startsWith(`${idx}-custom`) ? (
+                                <Loader2 size={14} className="animate-spin" />
+                              ) : (
+                                'Ask'
+                              )}
+                            </button>
+                          </div>
+                        )}
                       </div>
 
                       {/* Sub-Explanation Display */}
                       {expandedSteps[idx] && (
                         <div className="mt-3 space-y-3">
+                          {/* Exploration Type Results */}
                           {explorationTypes.map((expType) => {
                             const key = `${idx}-${expType.focus}`;
                             const subExp = subExplanations[key];
@@ -1104,13 +1210,11 @@ export default function ResearchAssistant({ className }: ResearchAssistantProps)
                                   </p>
                                   <button
                                     onClick={() => {
-                                      // Clear this specific sub-explanation
                                       setSubExplanations(prev => {
                                         const newState = { ...prev };
                                         delete newState[key];
                                         return newState;
                                       });
-                                      // Check if any sub-explanations remain for this step
                                       const remainingKeys = Object.keys(subExplanations).filter(
                                         k => k.startsWith(`${idx}-`) && k !== key
                                       );
@@ -1125,7 +1229,6 @@ export default function ResearchAssistant({ className }: ResearchAssistantProps)
                                 </div>
                                 <div className="text-sm text-[var(--text-secondary)] space-y-2">
                                   {renderMathMarkdown(subExp.explanation)}
-
                                   {subExp.examples && subExp.examples.length > 0 && (
                                     <div className="mt-2">
                                       <p className="font-medium text-xs mb-1">Examples:</p>
@@ -1136,13 +1239,11 @@ export default function ResearchAssistant({ className }: ResearchAssistantProps)
                                       </ul>
                                     </div>
                                   )}
-
                                   {subExp.analogy && (
                                     <div className="mt-2 p-2 bg-yellow-50 dark:bg-yellow-900/20 rounded text-xs">
                                       <span className="font-medium">Analogy: </span>{subExp.analogy}
                                     </div>
                                   )}
-
                                   {subExp.connection_to_main && (
                                     <div className="mt-2 text-xs text-[var(--text-tertiary)] italic">
                                       {subExp.connection_to_main}
@@ -1152,6 +1253,64 @@ export default function ResearchAssistant({ className }: ResearchAssistantProps)
                               </div>
                             );
                           })}
+
+                          {/* Custom Question Results */}
+                          {Object.entries(subExplanations)
+                            .filter(([key]) => key.startsWith(`${idx}-custom-`))
+                            .map(([key, subExp]) => {
+                              const question = key.replace(`${idx}-custom-`, '');
+                              return (
+                                <div key={key} className="p-3 bg-[var(--bg-secondary)] rounded-lg border-l-4 border-purple-500">
+                                  <div className="flex items-center justify-between mb-2">
+                                    <p className="text-sm font-medium text-purple-600">
+                                      <span className="mr-1">❓</span>
+                                      {question}
+                                    </p>
+                                    <button
+                                      onClick={() => {
+                                        setSubExplanations(prev => {
+                                          const newState = { ...prev };
+                                          delete newState[key];
+                                          return newState;
+                                        });
+                                        const remainingKeys = Object.keys(subExplanations).filter(
+                                          k => k.startsWith(`${idx}-`) && k !== key
+                                        );
+                                        if (remainingKeys.length === 0) {
+                                          setExpandedSteps(prev => ({ ...prev, [idx]: false }));
+                                        }
+                                      }}
+                                      className="text-[var(--text-tertiary)] hover:text-[var(--text-primary)]"
+                                    >
+                                      <ChevronUp size={16} />
+                                    </button>
+                                  </div>
+                                  <div className="text-sm text-[var(--text-secondary)] space-y-2">
+                                    {renderMathMarkdown(subExp.explanation)}
+                                    {subExp.examples && subExp.examples.length > 0 && (
+                                      <div className="mt-2">
+                                        <p className="font-medium text-xs mb-1">Examples:</p>
+                                        <ul className="list-disc list-inside space-y-1">
+                                          {subExp.examples.map((ex, i) => (
+                                            <li key={i}>{renderMathMarkdown(ex)}</li>
+                                          ))}
+                                        </ul>
+                                      </div>
+                                    )}
+                                    {subExp.analogy && (
+                                      <div className="mt-2 p-2 bg-yellow-50 dark:bg-yellow-900/20 rounded text-xs">
+                                        <span className="font-medium">Analogy: </span>{subExp.analogy}
+                                      </div>
+                                    )}
+                                    {subExp.connection_to_main && (
+                                      <div className="mt-2 text-xs text-[var(--text-tertiary)] italic">
+                                        {subExp.connection_to_main}
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            })}
                         </div>
                       )}
                     </div>
@@ -1216,6 +1375,70 @@ export default function ResearchAssistant({ className }: ResearchAssistantProps)
                     </div>
                   </div>
                 )}
+
+                {/* Global Follow-up Question */}
+                <div className="mt-6 pt-6 border-t border-[var(--border-color)]">
+                  <h4 className="font-semibold mb-2">Ask a Follow-up Question</h4>
+                  <p className="text-xs text-[var(--text-tertiary)] mb-3">
+                    Ask about the entire topic, compare concepts between steps, or explore related ideas.
+                  </p>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={globalFollowUp}
+                      onChange={(e) => setGlobalFollowUp(e.target.value)}
+                      placeholder="e.g., How do Step 1 and Step 3 relate to each other?"
+                      className="input flex-1"
+                      onKeyPress={(e) => e.key === 'Enter' && handleGlobalFollowUp()}
+                    />
+                    <button
+                      onClick={handleGlobalFollowUp}
+                      disabled={!globalFollowUp.trim() || loadingGlobalFollowUp}
+                      className="btn-primary px-6 disabled:opacity-50"
+                    >
+                      {loadingGlobalFollowUp ? (
+                        <Loader2 size={16} className="animate-spin" />
+                      ) : (
+                        'Submit'
+                      )}
+                    </button>
+                  </div>
+
+                  {/* Global Follow-up Result */}
+                  {globalFollowUpResult && (
+                    <div className="mt-4 p-4 bg-[var(--bg-tertiary)] rounded-lg border-l-4 border-green-500">
+                      <div className="flex items-center justify-between mb-2">
+                        <p className="text-sm font-medium text-green-600">Answer</p>
+                        <button
+                          onClick={() => setGlobalFollowUpResult(null)}
+                          className="text-[var(--text-tertiary)] hover:text-[var(--text-primary)]"
+                        >
+                          <ChevronUp size={16} />
+                        </button>
+                      </div>
+                      <div className="text-sm text-[var(--text-secondary)] space-y-2">
+                        {renderMathMarkdown(globalFollowUpResult.explanation)}
+
+                        {globalFollowUpResult.examples && globalFollowUpResult.examples.length > 0 && (
+                          <div className="mt-2">
+                            <p className="font-medium text-xs mb-1">Examples:</p>
+                            <ul className="list-disc list-inside space-y-1">
+                              {globalFollowUpResult.examples.map((ex, i) => (
+                                <li key={i}>{renderMathMarkdown(ex)}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+
+                        {globalFollowUpResult.connection_to_main && (
+                          <div className="mt-2 text-xs text-[var(--text-tertiary)] italic">
+                            {globalFollowUpResult.connection_to_main}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
               );
             })()}
