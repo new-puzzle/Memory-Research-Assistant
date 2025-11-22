@@ -1,6 +1,7 @@
 """
 Base AI Provider abstraction for multiple AI models.
 """
+import json
 from abc import ABC, abstractmethod
 from typing import List, Dict, Any, Optional
 from app.models.schemas import (
@@ -290,6 +291,35 @@ Parent Topic: {parent_topic}
 {prompt}
 
 Return ONLY valid JSON, no markdown."""
+
+    def _parse_subtopic_response(self, content: str) -> Dict[str, Any]:
+        """Parse subtopic drill-down response."""
+        try:
+            json_start = content.find('{')
+            json_end = content.rfind('}') + 1
+            if json_start != -1 and json_end > json_start:
+                json_str = content[json_start:json_end]
+                data = json.loads(json_str)
+                return {
+                    "explanation": data.get("explanation", ""),
+                    "examples": data.get("examples", []),
+                    "analogy": data.get("analogy"),
+                    "connection_to_main": data.get("connection_to_main", "")
+                }
+            else:
+                return {
+                    "explanation": content,
+                    "examples": [],
+                    "analogy": None,
+                    "connection_to_main": ""
+                }
+        except Exception:
+            return {
+                "explanation": content[:1000],
+                "examples": [],
+                "analogy": None,
+                "connection_to_main": ""
+            }
 
     def _build_organization_prompt(
         self,
