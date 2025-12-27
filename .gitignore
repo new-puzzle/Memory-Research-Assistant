@@ -93,3 +93,6 @@ Thumbs.db
 .idea/
 *.sublime-project
 *.sublime-workspace
+
+# Separate projects/references
+Catalyst/
