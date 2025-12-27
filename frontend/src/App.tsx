@@ -3,7 +3,7 @@
  */
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { Moon, Sun, LogOut, Upload, Library, Brain, Home, Cloud } from 'lucide-react';
+import { Moon, Sun, LogOut, Upload, Library, Brain, Home, Cloud, Trash2 } from 'lucide-react';
 import { useAuthStore, useAppStore } from './services/store';
 import LoginPage from './components/LoginPage';
 import MemoryPalace3D from './components/MemoryPalace3D';
@@ -15,7 +15,7 @@ import { generateId } from './utils/helpers';
 
 function App() {
   const { isAuthenticated, user, logout } = useAuthStore();
-  const { isDarkMode, toggleDarkMode, memoryPalace, setMemoryPalace, currentRoom, selectedModel } = useAppStore();
+  const { isDarkMode, toggleDarkMode, memoryPalace, setMemoryPalace, currentRoom, selectedModel, setCurrentRoom } = useAppStore();
   const [activeView, setActiveView] = useState<'palace' | 'research'>('palace');
   const [showUpload, setShowUpload] = useState(false);
   const [showStorage, setShowStorage] = useState(false);
@@ -107,6 +107,23 @@ function App() {
               <Cloud size={18} />
               <span className="hidden lg:inline">Storage</span>
             </button>
+
+            {/* Clear Memory Palace */}
+            {memoryPalace && (
+              <button
+                onClick={() => {
+                  if (confirm('Are you sure you want to clear the Memory Palace? This cannot be undone.')) {
+                    setMemoryPalace(null);
+                    setCurrentRoom(null);
+                  }
+                }}
+                className="btn-ghost text-red-600 hidden md:flex items-center gap-2"
+                title="Clear Memory Palace"
+              >
+                <Trash2 size={18} />
+                <span className="hidden lg:inline">Clear</span>
+              </button>
+            )}
 
             {/* Dark Mode Toggle */}
             <button

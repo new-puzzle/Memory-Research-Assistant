@@ -1,0 +1,39 @@
+{
+    "introduction": "...",
+    "steps": [
+        {
+            "title": "Step 1: The Core Idea",
+            "content": "Detailed explanation of the first step...",
+            "latex_equations": ["equation1", "equation2", "..."],
+            "follow_ups": [
+                {
+                    "prompt": "Explain the core idea of this step using a different analogy.",
+                    "display_text": "Explain this with another analogy"
+                },
+                {
+                    "prompt": "What is the mathematical formula for this step?",
+                    "display_text": "Show me the math"
+                }
+            ]
+        },
+        {
+            "title": "Step 2 Title",
+            "content": "Explanation for step 2...",
+            "latex_equations": [],
+            "follow_ups": []
+        }
+    ],
+    "common_misconceptions": [
+        "A common mistake is thinking X, but actually Y...",
+        "Another misconception is Z..."
+    ],
+    "key_takeaways": [
+        "If you remember nothing else, remember this...",
+        "Also, consider this important point..."
+    ],
+    "analogies": ["analogy 1", "analogy 2", "..."],
+    "references": [
+        {"title": "Reference 1", "url": "http://example.com/ref1"},
+        {"title": "Reference 2", "url": "http://example.com/ref2"}
+    ]
+}
